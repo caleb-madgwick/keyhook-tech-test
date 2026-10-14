@@ -105,6 +105,7 @@ v5 was written after reading those failures, so its 100% on that set is post-hoc
 
 **What they don't tell you:**
 - **Real-world accuracy is unproven.** Only 30 labels come from Keyhook, and 2 emergencies make "100% emergency recall" thin on its own.
+- **The 90% on Keyhook's 30 is in-sample.** Those messages were read throughout development and shaped the prompt's conventions, so the score shows the agent follows Keyhook's labelling. It doesn't show it generalises (95% interval about 74–97%). Its 3 misses are 2 medium-confidence escalations and 1 category on a label flagged as debatable before any run.
 - **Generated labels measure consistency, not correctness.** The suite's labels were written by the same model family that does the triage.
 - **The holdout is only partly blind.** The prompt's conventions came from all 349 labels.
 - **The truly blind ChatGPT slice is small.** It has 12 escalations, so the 95% interval on 92% recall is roughly 62–100%.
