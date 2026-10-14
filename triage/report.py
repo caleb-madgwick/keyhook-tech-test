@@ -8,12 +8,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .config import ROOT
-from .metrics import per_message_errors
+from .metrics import DECISION_FIELDS, per_message_errors
 from .schema import CATEGORIES, URGENCIES
 
 
-def _pct(v) -> str:
+def pct(v) -> str:
     return "n/a" if v is None else f"{v:.0%}"
+
+
+def slug(text: str) -> str:
+    """Make text safe for a file name."""
+    return re.sub(r"[^A-Za-z0-9._-]+", "_", text)
 
 
 def _matrix(title: str, m: dict, labels: tuple[str, ...]) -> list[str]:
@@ -31,14 +36,13 @@ def _slices(title: str, data: dict) -> list[str]:
     out = [f"**{title}**", "", "| slice | n | pass | category | urgency | escalation | esc. recall | under-triage |",
            "|---|---|---|---|---|---|---|---|"]
     for k, v in data.items():
-        out.append(f"| {k} | {v['n']} | {_pct(v['pass_rate'])} | {_pct(v['category'])} | {_pct(v['urgency'])} | "
-                   f"{_pct(v['escalation'])} | {_pct(v['escalation_recall'])} | {v['under_triage']} |")
+        out.append(f"| {k} | {v['n']} | {pct(v['pass_rate'])} | {pct(v['category'])} | {pct(v['urgency'])} | "
+                   f"{pct(v['escalation'])} | {pct(v['escalation_recall'])} | {v['under_triage']} |")
     return out + [""]
 
 
 def report_paths(summary: dict) -> tuple[Path, Path]:
-    slug = re.sub(r"[^A-Za-z0-9._-]+", "_", summary["model"])
-    stem = f"{Path(summary['dataset']).stem}__{slug}__{summary['prompt_version']}-{summary.get('prompt_digest', '')}"
+    stem = f"{Path(summary['dataset']).stem}__{slug(summary['model'])}__{summary['prompt_version']}-{summary.get('prompt_digest', '')}"
     if summary.get("split", "all") != "all":
         stem += f"__{summary['split']}"
     if summary.get("group"):
@@ -86,23 +90,23 @@ def write_report(summary: dict, rows: list[dict], messages: dict[str, dict], dis
         "",
         "| Metric | Value |",
         "|---|---|",
-        f"| **Pass rate** (category + urgency + escalation all correct) | **{_pct(m['pass_rate'])}** |",
-        f"| Category accuracy (strict primary) | {_pct(c['strict_accuracy'])} |",
-        f"| Category accuracy (lenient: primary within labelled categories) | {_pct(c['lenient_accuracy'])} |",
-        f"| also_mentions precision / recall | {_pct(c['also_mentions_precision'])} / {_pct(c['also_mentions_recall'])} |",
-        f"| Urgency accuracy | {_pct(u['accuracy'])} |",
+        f"| **Pass rate** (category + urgency + escalation all correct) | **{pct(m['pass_rate'])}** |",
+        f"| Category accuracy (strict primary) | {pct(c['strict_accuracy'])} |",
+        f"| Category accuracy (lenient: primary within labelled categories) | {pct(c['lenient_accuracy'])} |",
+        f"| also_mentions precision / recall | {pct(c['also_mentions_precision'])} / {pct(c['also_mentions_recall'])} |",
+        f"| Urgency accuracy | {pct(u['accuracy'])} |",
         f"| Under-triage (predicted less urgent than label) | {u['under_triage']} |",
         f"| Over-triage (predicted more urgent than label) | {u['over_triage']} |",
-        f"| Emergency recall | {_pct(u['emergency_recall'])} (n={u['emergency_n']}) |",
-        f"| Escalation recall (needed a human, got one) | {_pct(e['recall'])} ({e['tp']}/{e['tp'] + e['fn']}) |",
-        f"| Escalation precision | {_pct(e['precision'])} ({e['tp']}/{e['tp'] + e['fp']}) |",
+        f"| Emergency recall | {pct(u['emergency_recall'])} (n={u['emergency_n']}) |",
+        f"| Escalation recall (needed a human, got one) | {pct(e['recall'])} ({e['tp']}/{e['tp'] + e['fn']}) |",
+        f"| Escalation precision | {pct(e['precision'])} ({e['tp']}/{e['tp'] + e['fp']}) |",
         f"| Escalation F1 | {e['f1']:.2f} |",
     ]
     if j:
         L.append(f"| Action quality (judge, 0-2) | {j['mean_score']:.2f} (2: {j['score_2']}, 1: {j['score_1']}, 0: {j['score_0']}) |")
         L.append(f"| Actions flagged unsafe by judge | {', '.join(j['unsafe_ids']) or 'none'} |")
     if cons["messages_with_repeats"]:
-        L.append(f"| Decision consistency across repeats | {_pct(cons['stable_rate'])} stable; unstable: {', '.join(cons['unstable_ids']) or 'none'} |")
+        L.append(f"| Decision consistency across repeats | {pct(cons['stable_rate'])} stable; unstable: {', '.join(cons['unstable_ids']) or 'none'} |")
     L += [
         f"| Fail-safe results | {r['failsafe_count']} |",
         f"| Retried (invalid first output) | {r['retried_count']} |",
@@ -170,7 +174,7 @@ def _render_errors(errors: list[dict], messages: dict[str, dict], disputed: dict
             "| field | expected | predicted |",
             "|---|---|---|",
         ]
-        for f in ("category", "urgency", "escalate_to_human"):
+        for f in DECISION_FIELDS:
             mark = " ❌" if f in err["wrong"] else ""
             L.append(f"| {f} | {exp[f]} | {pred[f]}{mark} |")
         L.append(f"| also_mentions | {', '.join(exp.get('also_mentions', [])) or '-'} | "

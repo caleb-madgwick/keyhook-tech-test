@@ -12,10 +12,7 @@ from pathlib import Path
 
 from .config import ROOT, load_config
 from .eval import run_eval
-
-
-def _pct(v) -> str:
-    return "n/a" if v is None else f"{v:.0%}"
+from .report import pct
 
 
 def main() -> None:
@@ -51,8 +48,8 @@ def main() -> None:
         c, u, e, r = m["category"], m["urgency"], m["escalation"], m["reliability"]
         gates_failed = sum(not g["passed"] for g in s["gates"])
         lines.append(
-            f"| `{model}` | {_pct(m['pass_rate'])} | {_pct(c['strict_accuracy'])} | {_pct(u['accuracy'])} | "
-            f"{u['under_triage']} | {_pct(u['emergency_recall'])} | {_pct(e['recall'])} | {_pct(e['precision'])} | "
+            f"| `{model}` | {pct(m['pass_rate'])} | {pct(c['strict_accuracy'])} | {pct(u['accuracy'])} | "
+            f"{u['under_triage']} | {pct(u['emergency_recall'])} | {pct(e['recall'])} | {pct(e['precision'])} | "
             f"{r['failsafe_count']} | ${r['mean_cost_usd'] * 1000:.2f} | {r['latency_p50_ms']} ms | "
             f"{'PASS' if gates_failed == 0 else f'{gates_failed} failed'} |"
         )

@@ -20,7 +20,6 @@ import argparse
 import asyncio
 import hashlib
 import json
-import re
 import sys
 from pathlib import Path
 
@@ -28,7 +27,7 @@ from datetime import datetime, timezone
 
 from .agent import ModelOutcome, build_user_message, call_model, finalize, load_messages
 from .config import ROOT, Config, api_key, load_config
-from .guardrails import PreCheck, failsafe_result, precheck
+from .guardrails import precheck
 from .judge import JUDGE_PROMPT_VERSION, JUDGE_SCHEMA, JUDGE_SYSTEM, build_judge_user, judge_action
 from .metrics import (
     breakdown,
@@ -44,7 +43,7 @@ from .metrics import (
 )
 from .prompts import SYSTEM_PROMPTS
 from .replay import make_client
-from .report import write_report
+from .report import pct, slug, write_report
 from .schema import LLM_JSON_SCHEMA, LLMTriage, Meta
 
 # Named safety gates for the seed messages. Every repeat must pass. A gate is only applied if
@@ -121,34 +120,46 @@ def split_of(msg: dict) -> str:
     return "holdout" if bucket < HOLDOUT_PCT else "dev"
 
 
+def select_messages(dataset: str, split: str = "all", ids: set[str] | None = None,
+                    group: str | None = None) -> list[dict]:
+    """Load a dataset, keeping only the requested message ids, split and test_meta group."""
+    messages = load_messages(ROOT / dataset)
+    if ids:
+        messages = [m for m in messages if m["id"] in ids]
+    if split != "all":
+        messages = [m for m in messages if split_of(m) == split]
+    if group:
+        messages = [m for m in messages if (m.get("test_meta") or {}).get("group") == group]
+    return messages
+
+
 def _digest(obj) -> str:
     return hashlib.sha256(json.dumps(obj, sort_keys=True, default=str).encode()).hexdigest()[:10]
 
 
-def _slug(text: str) -> str:
-    return re.sub(r"[^A-Za-z0-9._-]+", "_", text)
+# Settings that never change a model's output, so they stay out of the cache keys.
+_NON_OUTPUT_SETTINGS = {"timeout_s", "max_retries", "prompt_cache"}
 
 
 def run_dir_for(cfg: Config, dataset: str) -> Path:
     """Cache key = everything that changes the model's output."""
     key = {
-        "settings": cfg.agent.model_dump(exclude={"timeout_s", "max_retries", "prompt_cache"}),
+        "settings": cfg.agent.model_dump(exclude=_NON_OUTPUT_SETTINGS),
         "system_prompt": SYSTEM_PROMPTS[cfg.agent.prompt_version],
         "schema": LLM_JSON_SCHEMA,
     }
     if cfg.agent.backend == "replay" and cfg.agent.replay_file:
-        rf = Path(cfg.agent.replay_file)
-        rf = rf if rf.is_absolute() else ROOT / rf
+        rf = ROOT / cfg.agent.replay_file  # an absolute path passes through
         key["replay_digest"] = hashlib.sha256(rf.read_bytes()).hexdigest() if rf.exists() else "missing"
     ds = (ROOT / dataset).resolve()  # same file as run_eval loads, whatever the cwd (absolute paths pass through)
-    ds_dir = f"{_slug(ds.stem)}__{_digest(str(ds))[:6]}"
-    return ROOT / "runs" / ds_dir / f"{_slug(cfg.agent.model)}__{cfg.agent.prompt_version}__{_digest(key)}"
+    ds_dir = f"{slug(ds.stem)}__{_digest(str(ds))[:6]}"
+    return ROOT / "runs" / ds_dir / f"{slug(cfg.agent.model)}__{cfg.agent.prompt_version}__{_digest(key)}"
 
 
 def judge_file_for(cfg: Config, run_dir: Path) -> Path:
-    key = {"settings": cfg.judge.model_dump(exclude={"timeout_s", "max_retries", "prompt_cache"}),
+    key = {"settings": cfg.judge.model_dump(exclude=_NON_OUTPUT_SETTINGS),
            "system": JUDGE_SYSTEM, "schema": JUDGE_SCHEMA}
-    return run_dir / f"judge_{JUDGE_PROMPT_VERSION}_{_slug(cfg.judge.model)}_{_digest(key)}.jsonl"
+    return run_dir / f"judge_{JUDGE_PROMPT_VERSION}_{slug(cfg.judge.model)}_{_digest(key)}.jsonl"
 
 
 def _load_jsonl(path: Path) -> dict[tuple[str, int], dict]:
@@ -168,8 +179,12 @@ def _load_jsonl(path: Path) -> dict[tuple[str, int], dict]:
 LEDGER = "spend_ledger.jsonl"
 
 
+def _ledger_path(root: Path) -> Path:
+    return root / "runs" / LEDGER
+
+
 def ledger_total(root: Path) -> float:
-    path = root / "runs" / LEDGER
+    path = _ledger_path(root)
     if not path.exists():
         return 0.0
     total = 0.0
@@ -215,21 +230,20 @@ async def _run(cfg: Config, messages: list[dict], repeats: int, use_judge: bool,
     spent = {"agent": 0.0, "judge": 0.0, "skipped_for_budget": 0}
     cap, total_cap = cfg.eval.max_spend_usd, cfg.eval.max_total_spend_usd
     previously_spent = ledger_total(ROOT)
-    ledger_path = ROOT / "runs" / LEDGER
+    ledger_path = _ledger_path(ROOT)
 
     def over_budget() -> bool:
         run = spent["agent"] + spent["judge"]
         return (cap is not None and run >= cap) or (total_cap is not None and previously_spent + run >= total_cap)
 
-    replay = cfg.agent.backend == "replay"
-
-    def record_spend(kind: str, cost: float, model: str) -> None:
-        if replay and kind == "agent":
+    def record_spend(kind: str, cost: float) -> None:
+        settings = cfg.agent if kind == "agent" else cfg.judge
+        if settings.backend == "replay":
             return  # replay costs are estimates, not real spend
         spent[kind] += cost
         if cost:
             _append_jsonl(ledger_path, {"ts": datetime.now(timezone.utc).isoformat(), "kind": kind,
-                                        "model": model, "cost_usd": cost})
+                                        "model": settings.model, "cost_usd": cost})
 
     async def agent_one(m: dict, k: int) -> None:
         async with sem:
@@ -242,7 +256,7 @@ async def _run(cfg: Config, messages: list[dict], repeats: int, use_judge: bool,
                 meta = Meta(model_requested=cfg.agent.model, prompt_version=cfg.agent.prompt_version,
                             error=f"internal error: {type(e).__name__}: {e}")
                 outcome = ModelOutcome(None, meta)
-        record_spend("agent", outcome.meta.cost_usd, cfg.agent.model)
+        record_spend("agent", outcome.meta.cost_usd)
         rec = {"id": m["id"], "repeat": k, "input_hash": input_hash[m["id"]],
                "llm": outcome.llm.model_dump() if outcome.llm else None, "meta": outcome.meta.model_dump()}
         if outcome.llm is not None:
@@ -258,19 +272,19 @@ async def _run(cfg: Config, messages: list[dict], repeats: int, use_judge: bool,
         else:
             print(f"All {len(cached)} agent results cached; no agent API calls.", file=sys.stderr)
 
-        by_id_all = {m["id"]: m for m in messages}
+        by_id = {m["id"]: m for m in messages}
 
         actions: dict[tuple[str, int], str] = {}
 
         def final_action(key) -> str:
             # Judge what a PM would actually see: the action AFTER the policy code.
             if key not in actions:  # rebuilding it reruns precheck and the policy, so do it once per key
-                actions[key] = _prediction(cached[key], by_id_all[key[0]], cfg)["required_action"]
+                actions[key] = _prediction(cached[key], by_id[key[0]], cfg)["required_action"]
             return actions[key]
 
         def judge_input_hash(key) -> str:
             # Everything the judge sees: the message, the labelled reference action and the agent's action.
-            m = by_id_all[key[0]]
+            m = by_id[key[0]]
             return _digest(build_judge_user(m, m.get("expected", {}).get("expected_action") or "", final_action(key)))
 
         # Verdicts recorded before judge_input_hash existed carry only `action_hash`. A live judge reuses
@@ -286,13 +300,12 @@ async def _run(cfg: Config, messages: list[dict], repeats: int, use_judge: bool,
             return reuse_legacy and rec.get("action_hash") == _digest(final_action(key))
 
         judged = {key: rec for key, rec in (_load_jsonl(judge_path) if use_judge else {}).items()
-                  if key in cached and key[0] in by_id_all and verdict_valid(key, rec)}
+                  if key in cached and key[0] in by_id and verdict_valid(key, rec)}
         legacy = sum("judge_input_hash" not in rec for rec in judged.values())
         if legacy:
             print(f"Reusing {legacy} judge verdicts keyed on the action only (recorded before label changes "
                   f"were tracked); delete {judge_path} to re-judge them.", file=sys.stderr)
         if use_judge:
-            by_id = {m["id"]: m for m in messages}
             jtodo = [key for key in cached
                      if key not in judged and key[0] in by_id and key[1] < repeats
                      and by_id[key[0]].get("expected", {}).get("expected_action")]
@@ -305,8 +318,7 @@ async def _run(cfg: Config, messages: list[dict], repeats: int, use_judge: bool,
                         return
                     v = await judge_action(client("judge"), cfg.judge, by_id[mid], by_id[mid]["expected"]["expected_action"],
                                            final_action(key))
-                if cfg.judge.backend != "replay":
-                    record_spend("judge", v.get("cost_usd", 0.0), cfg.judge.model)
+                record_spend("judge", v.get("cost_usd", 0.0))
                 rec = {"id": mid, "repeat": k, "judge_input_hash": judge_input_hash(key), "judge": v}
                 if "error" not in v:  # don't cache judge errors, so they're retried next run
                     _append_jsonl(judge_path, rec)
@@ -330,22 +342,14 @@ async def _run(cfg: Config, messages: list[dict], repeats: int, use_judge: bool,
 
 def _prediction(rec: dict, msg: dict, cfg: Config) -> dict:
     """Rebuild the final decision from cached raw model output using the CURRENT policy code."""
-    pre = precheck(msg)
-    meta = Meta.model_validate(rec["meta"])
-    if rec.get("llm") is None:
-        return failsafe_result(msg["id"], meta, meta.error or "unknown error", pre).model_dump()
-    return finalize(msg["id"], ModelOutcome(LLMTriage.model_validate(rec["llm"]), meta), pre, cfg).model_dump()
+    llm = LLMTriage.model_validate(rec["llm"]) if rec.get("llm") is not None else None
+    outcome = ModelOutcome(llm, Meta.model_validate(rec["meta"]))
+    return finalize(msg["id"], outcome, precheck(msg), cfg).model_dump()
 
 
 def run_eval(cfg: Config, dataset: str, repeats: int, use_judge: bool = True, refresh: bool = False,
              ids: set[str] | None = None, split: str = "all", group: str | None = None) -> dict:
-    messages = load_messages(ROOT / dataset)
-    if ids:
-        messages = [m for m in messages if m["id"] in ids]
-    if split != "all":
-        messages = [m for m in messages if split_of(m) == split]
-    if group:
-        messages = [m for m in messages if (m.get("test_meta") or {}).get("group") == group]
+    messages = select_messages(dataset, split, ids, group)
     run_dir = run_dir_for(cfg, dataset)
     cached, failed, judged, spent = asyncio.run(_run(cfg, messages, repeats, use_judge, run_dir, refresh))
 
@@ -407,7 +411,6 @@ def run_eval(cfg: Config, dataset: str, repeats: int, use_judge: bool = True, re
 def print_summary(s: dict) -> None:
     m = s["metrics"]
     c, u, e, r = m["category"], m["urgency"], m["escalation"], m["reliability"]
-    pct = lambda v: "n/a" if v is None else f"{v:.0%}"  # noqa: E731
     print(f"\n== {s['model']} | prompt {s['prompt_version']} | {s['n_messages']} msgs x {s['repeats']} repeats ==")
     print(f"PASS RATE  {pct(m['pass_rate'])}  (category + urgency + escalation all correct)")
     print(f"Category   strict {pct(c['strict_accuracy'])}  lenient {pct(c['lenient_accuracy'])}")
@@ -456,8 +459,7 @@ def main() -> None:
 
     cfg = load_config(model=args.model, replay=args.replay)
     if args.judge_replay:
-        cfg.judge.backend, cfg.judge.replay_file = "replay", args.judge_replay
-        cfg.judge.model = f"replay:{Path(args.judge_replay).stem}"
+        cfg.judge.use_replay(args.judge_replay)
     summary = run_eval(
         cfg,
         dataset=args.dataset or cfg.eval.dataset,

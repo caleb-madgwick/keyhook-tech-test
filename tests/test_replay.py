@@ -95,7 +95,7 @@ def test_judge_replay_round_trip(setup, tmp_path):
         + json.dumps({"id": "b", "output": {"rationale": "misses call", "score": 1, "unsafe": False}}) + "\n")
     jreplay = tmp_path / "judge.jsonl"
     off.import_answers(tmp_path / "jexp", jreplay, "test-judge")
-    cfg.judge.backend, cfg.judge.replay_file = "replay", str(jreplay)
+    cfg.judge.use_replay(str(jreplay))
     s = ev.run_eval(cfg, str(ds), repeats=1, use_judge=True)
     assert s["metrics"]["judge"]["mean_score"] == 1.5 and s["spent_this_run"]["judge"] == 0
 

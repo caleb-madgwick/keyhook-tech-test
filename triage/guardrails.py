@@ -9,7 +9,6 @@ a message *towards* a human, never away from one.
 from __future__ import annotations
 
 import base64
-import binascii
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -132,7 +131,7 @@ def decode_base64_blobs(text: str) -> list[str]:
         try:
             raw = base64.b64decode(token + "=" * (-len(token) % 4), validate=True)
             decoded = raw.decode("utf-8")
-        except (binascii.Error, UnicodeDecodeError, ValueError):
+        except ValueError:  # includes binascii.Error and UnicodeDecodeError
             continue
         printable = sum(c.isprintable() or c.isspace() for c in decoded)
         if decoded and printable / len(decoded) > 0.95 and re.search(r"[A-Za-z]{3,}\s+[A-Za-z]{3,}", decoded):
@@ -258,11 +257,19 @@ def _is_english(code: str) -> bool:
     return base in ("", "en", "eng", "english")
 
 
-def apply_policy(message_id: str, llm: LLMTriage, pre: PreCheck | list[str], meta: Meta,
-                 escalate_on_confidence: tuple[str, ...] | list[str] = ("low", "medium")) -> TriageResult:
-    if isinstance(pre, list):  # convenience for tests: just injection hits
-        pre = PreCheck(msg={}, injection_hits=pre)
+def _precheck_reasons(pre: PreCheck, meta: Meta) -> list[str]:
+    """Escalation reasons from what the pre-check found (also records the regex hit on meta)."""
+    meta.injection_regex_hit = bool(pre.injection_hits)
+    reasons = []
+    if pre.injection_hits:
+        reasons.append("injection_pattern_detected")
+    if pre.obfuscated:
+        reasons.append("obfuscated_content")
+    return reasons
 
+
+def apply_policy(message_id: str, llm: LLMTriage, pre: PreCheck, meta: Meta,
+                 escalate_on_confidence: tuple[str, ...] | list[str] = ("low", "medium")) -> TriageResult:
     primary = llm.issues[_primary_index(llm)]
     urgency = max((i.urgency for i in llm.issues), key=URGENCY_RANK.__getitem__)
 
@@ -290,11 +297,8 @@ def apply_policy(message_id: str, llm: LLMTriage, pre: PreCheck | list[str], met
     non_english = llm.language_mix != "english" or not all(_is_english(code) for code in llm.languages)
     if non_english:
         add("translation_check")
-    if pre.injection_hits:
-        add("injection_pattern_detected")
-    if pre.obfuscated:
-        add("obfuscated_content")
-    meta.injection_regex_hit = bool(pre.injection_hits)
+    for reason in _precheck_reasons(pre, meta):
+        add(reason)
 
     return TriageResult(
         message_id=message_id,
@@ -314,19 +318,12 @@ def apply_policy(message_id: str, llm: LLMTriage, pre: PreCheck | list[str], met
     )
 
 
-def failsafe_result(message_id: str, meta: Meta, error: str, pre: PreCheck | list[str]) -> TriageResult:
+def failsafe_result(message_id: str, meta: Meta, error: str, pre: PreCheck) -> TriageResult:
     """Used when the model can't produce valid output. Never fail open: send to a human
     with enough urgency that someone reads it today."""
-    if isinstance(pre, list):
-        pre = PreCheck(msg={}, injection_hits=pre)
     meta.failsafe = True
     meta.error = error
-    meta.injection_regex_hit = bool(pre.injection_hits)
-    reasons: list = ["triage_failed"]
-    if pre.injection_hits:
-        reasons.append("injection_pattern_detected")
-    if pre.obfuscated:
-        reasons.append("obfuscated_content")
+    reasons = ["triage_failed", *_precheck_reasons(pre, meta)]
     text = " ".join(str(pre.msg.get(k) or "") for k in ("subject", "body"))
     # A keyword hit only moves the message up the queue; it is not an assessed emergency, so it gets
     # neither the `emergency` reason nor the definite EMERGENCY_PREAMBLE.

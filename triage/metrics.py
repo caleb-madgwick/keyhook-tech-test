@@ -12,6 +12,9 @@ from statistics import median
 
 from .schema import CATEGORIES, URGENCIES, URGENCY_RANK
 
+# The decision a message passes or fails on (see message_pass).
+DECISION_FIELDS = ("category", "urgency", "escalate_to_human")
+
 
 def _rate(num: int, den: int) -> float | None:
     return num / den if den else None
@@ -156,11 +159,7 @@ def per_message_errors(rows: list[dict]) -> list[dict]:
     out = []
     for r in rows:
         e, p = r["expected"], r["pred"]
-        wrong = [
-            f
-            for f in ("category", "urgency", "escalate_to_human")
-            if e[f] != p[f]
-        ]
+        wrong = [f for f in DECISION_FIELDS if e[f] != p[f]]
         if wrong or p["meta"]["failsafe"] or (r.get("judge") and r["judge"]["score"] < 2):
             out.append({"id": r["id"], "repeat": r["repeat"], "wrong": wrong, "row": r})
     return out
@@ -172,7 +171,7 @@ def per_message_errors(rows: list[dict]) -> list[dict]:
 def message_pass(row: dict) -> bool:
     """A prediction 'passes' when category (strict primary), urgency and escalation all match."""
     e, p = row["expected"], row["pred"]
-    return all(e[f] == p[f] for f in ("category", "urgency", "escalate_to_human"))
+    return all(e[f] == p[f] for f in DECISION_FIELDS)
 
 
 def _slice_stats(rows: list[dict]) -> dict:

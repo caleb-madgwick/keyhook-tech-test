@@ -18,33 +18,37 @@ from pathlib import Path
 
 from .agent import build_user_message, load_messages
 from .config import ROOT, load_config
-from .eval import split_of
+from .eval import select_messages
 from .guardrails import precheck
 from .prompts import SYSTEM_PROMPTS
 from .replay import input_key
 from .schema import LLM_JSON_SCHEMA
 
 
-def export(dataset: str, out: Path, chunk: int, split: str) -> None:
-    cfg = load_config()
-    messages = load_messages(ROOT / dataset)
-    if split != "all":
-        messages = [m for m in messages if split_of(m) == split]
+def _write_export(out: Path, system: str, schema: dict, items: list[tuple[str, str]], manifest: dict,
+                  chunk: int, what: str) -> None:
+    """Write the system prompt, `chunk`-sized batches of (id, user message) and a manifest keyed by input."""
     out.mkdir(parents=True, exist_ok=True)
-    system = SYSTEM_PROMPTS[cfg.agent.prompt_version]
     (out / "system_prompt.md").write_text(
         system + "\n\n## Output format\nReturn ONLY a JSON object matching this JSON schema:\n"
-        + json.dumps(LLM_JSON_SCHEMA, indent=1)
+        + json.dumps(schema, indent=1)
     )
-    manifest = {"dataset": dataset, "prompt_version": cfg.agent.prompt_version, "keys": {}}
-    for n in range(0, len(messages), chunk):
+    manifest["keys"] = {}
+    for n in range(0, len(items), chunk):
         with (out / f"batch_{n // chunk:03d}.jsonl").open("w") as f:
-            for m in messages[n:n + chunk]:
-                user = build_user_message(precheck(m))  # identical to what the agent sends
-                manifest["keys"][m["id"]] = input_key(system, user)
-                f.write(json.dumps({"id": m["id"], "user_message": user}, ensure_ascii=False) + "\n")
+            for mid, user in items[n:n + chunk]:
+                manifest["keys"][mid] = input_key(system, user)
+                f.write(json.dumps({"id": mid, "user_message": user}, ensure_ascii=False) + "\n")
     (out / "manifest.json").write_text(json.dumps(manifest, indent=1))
-    print(f"Exported {len(messages)} messages in {(len(messages) + chunk - 1) // chunk} batches to {out}")
+    print(f"Exported {len(items)} {what} in {(len(items) + chunk - 1) // chunk} batches to {out}")
+
+
+def export(dataset: str, out: Path, chunk: int, split: str) -> None:
+    cfg = load_config()
+    # The user turn is identical to what the agent sends.
+    items = [(m["id"], build_user_message(precheck(m))) for m in select_messages(dataset, split)]
+    _write_export(out, SYSTEM_PROMPTS[cfg.agent.prompt_version], LLM_JSON_SCHEMA, items,
+                  {"dataset": dataset, "prompt_version": cfg.agent.prompt_version}, chunk, "messages")
 
 
 def export_judge(dataset: str, replay: str, out: Path, chunk: int) -> None:
@@ -58,23 +62,14 @@ def export_judge(dataset: str, replay: str, out: Path, chunk: int) -> None:
     cached = _load_jsonl(run_dir_for(cfg, dataset) / "results.jsonl")
     if not cached:
         raise SystemExit("No cached agent results for this replay; run triage.eval --replay first.")
-    out.mkdir(parents=True, exist_ok=True)
-    (out / "system_prompt.md").write_text(
-        JUDGE_SYSTEM + "\n\n## Output format\nReturn ONLY a JSON object matching this JSON schema:\n"
-        + json.dumps(JUDGE_SCHEMA, indent=1)
-    )
-    manifest = {"dataset": dataset, "kind": "judge", "keys": {}}
-    items = [(mid, rec) for (mid, k), rec in sorted(cached.items())
-             if k == 0 and mid in by_id and by_id[mid].get("expected", {}).get("expected_action")]
-    for n in range(0, len(items), chunk):
-        with (out / f"batch_{n // chunk:03d}.jsonl").open("w") as f:
-            for mid, rec in items[n:n + chunk]:
-                final_action = _prediction(rec, by_id[mid], cfg)["required_action"]  # what a PM would see
-                user = build_judge_user(by_id[mid], by_id[mid]["expected"]["expected_action"], final_action)
-                manifest["keys"][mid] = input_key(JUDGE_SYSTEM, user)
-                f.write(json.dumps({"id": mid, "user_message": user}, ensure_ascii=False) + "\n")
-    (out / "manifest.json").write_text(json.dumps(manifest, indent=1))
-    print(f"Exported {len(items)} judge prompts in {(len(items) + chunk - 1) // chunk} batches to {out}")
+    items = []
+    for (mid, k), rec in sorted(cached.items()):
+        msg = by_id.get(mid)
+        if k == 0 and msg and msg.get("expected", {}).get("expected_action"):
+            final_action = _prediction(rec, msg, cfg)["required_action"]  # what a PM would see
+            items.append((mid, build_judge_user(msg, msg["expected"]["expected_action"], final_action)))
+    _write_export(out, JUDGE_SYSTEM, JUDGE_SCHEMA, items, {"dataset": dataset, "kind": "judge"}, chunk,
+                  "judge prompts")
 
 
 def import_answers(directory: Path, out: Path, producer: str) -> None:

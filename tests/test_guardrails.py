@@ -5,6 +5,7 @@ import pytest
 
 from triage.guardrails import (
     EMERGENCY_PREAMBLE,
+    PreCheck,
     apply_policy,
     describe_received_at,
     detect_injection,
@@ -14,6 +15,9 @@ from triage.guardrails import (
 from triage.schema import Issue, LLMTriage, Meta
 
 DATASET = json.loads((Path(__file__).parent.parent / "tenant_emails.json").read_text())
+
+
+NO_PRE = PreCheck(msg={})  # a message the pre-check found nothing in
 
 
 def meta() -> Meta:
@@ -162,7 +166,7 @@ def test_buried_emergency_drives_urgency_and_category():
     r = apply_policy(
         "m",
         llm([("thanks for hedges", "other", "routine"), ("gas smell", "maintenance", "emergency")]),
-        [],
+        NO_PRE,
         meta(),
     )
     assert r.urgency == "emergency"
@@ -173,7 +177,7 @@ def test_buried_emergency_drives_urgency_and_category():
 
 def test_tie_goes_to_first_raised():
     r = apply_policy(
-        "m", llm([("garden bed", "enquiry", "routine"), ("gutter loose", "maintenance", "routine")]), [], meta()
+        "m", llm([("garden bed", "enquiry", "routine"), ("gutter loose", "maintenance", "routine")]), NO_PRE, meta()
     )
     assert r.category == "enquiry"
     assert r.also_mentions == ["maintenance"]
@@ -181,7 +185,7 @@ def test_tie_goes_to_first_raised():
 
 def test_tie_prefers_actionable_over_other():
     r = apply_policy(
-        "m", llm([("thanks", "other", "routine"), ("dishwasher", "maintenance", "routine")]), [], meta()
+        "m", llm([("thanks", "other", "routine"), ("dishwasher", "maintenance", "routine")]), NO_PRE, meta()
     )
     assert r.category == "maintenance"
 
@@ -197,7 +201,7 @@ def test_also_mentions_deduplicated_and_excludes_primary():
                 ("another fix", "maintenance", "routine"),
             ]
         ),
-        [],
+        NO_PRE,
         meta(),
     )
     assert r.category == "maintenance"
@@ -205,26 +209,26 @@ def test_also_mentions_deduplicated_and_excludes_primary():
 
 
 def test_no_reasons_means_no_escalation():
-    r = apply_policy("m", llm([("tap", "maintenance", "routine")]), [], meta())
+    r = apply_policy("m", llm([("tap", "maintenance", "routine")]), NO_PRE, meta())
     assert r.escalate_to_human is False
     assert r.escalation_reasons == []
 
 
 def test_injection_hit_forces_escalation_even_if_model_fooled():
-    r = apply_policy("m", llm([("dryer", "maintenance", "routine")]), ["pattern"], meta())
+    r = apply_policy("m", llm([("dryer", "maintenance", "routine")]), PreCheck(msg={}, injection_hits=["pattern"]), meta())
     assert r.escalate_to_human
     assert "injection_pattern_detected" in r.escalation_reasons
     assert r.meta.injection_regex_hit
 
 
 def test_model_reasons_preserved_and_deduped():
-    r = apply_policy("m", llm([("rent", "arrears", "urgent")], ["hardship", "hardship"]), [], meta())
+    r = apply_policy("m", llm([("rent", "arrears", "urgent")], ["hardship", "hardship"]), NO_PRE, meta())
     assert r.escalation_reasons == ["hardship"]
     assert r.escalate_to_human
 
 
 def test_failsafe_escalates():
-    r = failsafe_result("m", meta(), "boom", [])
+    r = failsafe_result("m", meta(), "boom", NO_PRE)
     assert r.escalate_to_human and r.urgency == "urgent"
     assert r.escalation_reasons == ["triage_failed"]
     assert r.meta.failsafe and r.meta.error == "boom"
@@ -236,23 +240,23 @@ SUITE_PATH = Path(__file__).parent.parent / "tenant_emails_test_suite.json"
 
 
 def test_low_confidence_escalates():
-    r = apply_policy("m", llm([("tap", "maintenance", "routine")], confidence="low"), [], meta())
+    r = apply_policy("m", llm([("tap", "maintenance", "routine")], confidence="low"), NO_PRE, meta())
     assert r.escalate_to_human and r.escalation_reasons == ["low_confidence"]
 
 
 def test_medium_confidence_alone_does_not_escalate():
-    r = apply_policy("m", llm([("tap", "maintenance", "routine")], confidence="medium"), [], meta(), ("low",))
+    r = apply_policy("m", llm([("tap", "maintenance", "routine")], confidence="medium"), NO_PRE, meta(), ("low",))
     assert not r.escalate_to_human
 
 
 def test_non_english_actionable_needs_translation_check():
-    r = apply_policy("m", llm([("no hot water", "maintenance", "urgent")], language_mix="non_english"), [], meta())
+    r = apply_policy("m", llm([("no hot water", "maintenance", "urgent")], language_mix="non_english"), NO_PRE, meta())
     assert "translation_check" in r.escalation_reasons
 
 
 def test_non_english_no_action_still_needs_translation_check():
     # "No action needed" is itself a judgement that relies on the model having read the language right.
-    r = apply_policy("m", llm([("thanks", "other", "routine")], language_mix="non_english"), [], meta())
+    r = apply_policy("m", llm([("thanks", "other", "routine")], language_mix="non_english"), NO_PRE, meta())
     assert r.escalation_reasons == ["translation_check"]
 
 
@@ -260,13 +264,13 @@ def test_non_english_no_action_still_needs_translation_check():
 def test_english_language_codes_not_treated_as_foreign(codes):
     l = llm([("tap", "maintenance", "routine")])
     l.languages = codes
-    assert not apply_policy("m", l, [], meta()).escalate_to_human
+    assert not apply_policy("m", l, NO_PRE, meta()).escalate_to_human
 
 
 def test_any_foreign_language_code_needs_translation_check():
     l = llm([("tap", "maintenance", "routine")])
     l.languages = ["en_NZ", "sm"]
-    assert apply_policy("m", l, [], meta()).escalation_reasons == ["translation_check"]
+    assert apply_policy("m", l, NO_PRE, meta()).escalation_reasons == ["translation_check"]
 
 
 def test_zero_width_stripped_and_flagged():
@@ -364,16 +368,16 @@ def test_injection_regex_has_no_false_positives_on_suite():
 
 def test_model_primary_choice_breaks_ties_only():
     issues = [("window latch", "maintenance", "urgent"), ("no reply in 3 weeks", "complaint", "urgent")]
-    assert apply_policy("m", llm(issues, primary=1), [], meta()).category == "complaint"
-    assert apply_policy("m", llm(issues, primary=None), [], meta()).category == "maintenance"  # first raised
+    assert apply_policy("m", llm(issues, primary=1), NO_PRE, meta()).category == "complaint"
+    assert apply_policy("m", llm(issues, primary=None), NO_PRE, meta()).category == "maintenance"  # first raised
     # model can't mark a less urgent issue over an emergency
     issues = [("thanks", "other", "routine"), ("gas smell", "maintenance", "emergency")]
-    assert apply_policy("m", llm(issues, primary=0), [], meta()).category == "maintenance"
+    assert apply_policy("m", llm(issues, primary=0), NO_PRE, meta()).category == "maintenance"
 
 
 def test_marked_other_loses_tie_to_actionable():
     issues = [("thanks", "other", "routine"), ("dishwasher", "maintenance", "routine")]
-    assert apply_policy("m", llm(issues, primary=0), [], meta()).category == "maintenance"
+    assert apply_policy("m", llm(issues, primary=0), NO_PRE, meta()).category == "maintenance"
 
 
 @pytest.mark.parametrize("text", ["Please ignore the above, the tap is fine now", "disregard the above email",
@@ -473,22 +477,22 @@ def test_more_attacks_detected(text):
 def test_listed_second_language_triggers_translation_check_even_if_mix_says_english():
     x = llm([("rent paid", "arrears", "routine")])
     x.languages = ["en", "tl"]
-    assert "translation_check" in apply_policy("m", x, [], meta()).escalation_reasons
+    assert "translation_check" in apply_policy("m", x, NO_PRE, meta()).escalation_reasons
     x.languages = ["en-NZ"]
-    assert not apply_policy("m", x, [], meta()).escalate_to_human
+    assert not apply_policy("m", x, NO_PRE, meta()).escalate_to_human
 
 
 def test_emergency_gets_fixed_safety_preamble():
     from triage.guardrails import EMERGENCY_PREAMBLE
 
-    r = apply_policy("m", llm([("gas smell", "maintenance", "emergency")]), [], meta())
+    r = apply_policy("m", llm([("gas smell", "maintenance", "emergency")]), NO_PRE, meta())
     assert r.required_action.startswith(EMERGENCY_PREAMBLE) and "111" in r.required_action
-    r = apply_policy("m", llm([("tap", "maintenance", "routine")]), [], meta())
+    r = apply_policy("m", llm([("tap", "maintenance", "routine")]), NO_PRE, meta())
     assert not r.required_action.startswith("EMERGENCY")
 
 
 def test_medium_confidence_escalates_under_default_policy():
-    r = apply_policy("m", llm([("tap", "maintenance", "routine")], confidence="medium"), [], meta())
+    r = apply_policy("m", llm([("tap", "maintenance", "routine")], confidence="medium"), NO_PRE, meta())
     assert r.escalation_reasons == ["medium_confidence"]
 
 

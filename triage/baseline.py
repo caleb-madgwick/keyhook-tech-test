@@ -12,9 +12,7 @@ from __future__ import annotations
 import argparse
 import re
 
-from .agent import load_messages
-from .config import ROOT
-from .eval import split_of
+from .eval import select_messages
 from .guardrails import precheck
 from .metrics import category_metrics, escalation_metrics, message_pass, urgency_metrics
 
@@ -64,12 +62,9 @@ def main() -> None:
     ap.add_argument("--dataset", default="tenant_emails_test_suite.json")
     ap.add_argument("--split", choices=["all", "dev", "holdout"], default="all")
     args = ap.parse_args()
-    messages = [m for m in load_messages(ROOT / args.dataset) if "expected" in m]
-    if args.split != "all":
-        messages = [m for m in messages if split_of(m) == args.split]
+    messages = [m for m in select_messages(args.dataset, args.split) if "expected" in m]
     rows = [{"id": m["id"], "expected": m["expected"], "pred": classify(m)} for m in messages]
     c, u, e = category_metrics(rows), urgency_metrics(rows), escalation_metrics(rows)
-    pct = lambda v: "n/a" if v is None else f"{v:.0%}"  # noqa: E731
     print(f"Keyword baseline on {args.dataset} ({args.split}, n={len(rows)})")
     print(f"  pass rate {pct(sum(message_pass(r) for r in rows) / len(rows))}  category {pct(c['strict_accuracy'])}  "
           f"urgency {pct(u['accuracy'])} (under-triage {u['under_triage']}, emergency recall {pct(u['emergency_recall'])})  "

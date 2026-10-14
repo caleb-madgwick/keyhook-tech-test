@@ -35,6 +35,12 @@ class ModelSettings(BaseModel):
     # USD per 1M tokens, used only to ESTIMATE cost in replay mode (tokens are estimated too).
     replay_pricing: dict[str, float] = Field(default_factory=lambda: {"input": 0.10, "output": 0.50})
 
+    def use_replay(self, replay_file: str) -> None:
+        """Serve recorded outputs from replay_file instead of calling the API."""
+        self.backend = "replay"
+        self.replay_file = replay_file
+        self.model = f"replay:{Path(replay_file).stem}"
+
 
 class EvalSettings(BaseModel):
     dataset: str = "tenant_emails_test_suite.json"
@@ -70,9 +76,7 @@ def load_config(path: str | Path = ROOT / "config.yaml", model: str | None = Non
     if override:
         cfg.agent.model = override
     if replay:
-        cfg.agent.backend = "replay"
-        cfg.agent.replay_file = replay
-        cfg.agent.model = f"replay:{Path(replay).stem}"
+        cfg.agent.use_replay(replay)
     return cfg
 
 

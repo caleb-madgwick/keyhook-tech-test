@@ -15,7 +15,7 @@ import hashlib
 import json
 from pathlib import Path
 
-from .client import LLMError, LLMResponse
+from .client import LLMError, LLMResponse, OpenRouterClient
 from .config import ROOT, ModelSettings
 
 
@@ -45,8 +45,7 @@ class ReplayClient:
     def __init__(self, settings: ModelSettings):
         if not settings.replay_file:
             raise SystemExit("backend=replay needs agent.replay_file (or --replay path)")
-        path = Path(settings.replay_file)
-        self.outputs = load_replay(path if path.is_absolute() else ROOT / path)
+        self.outputs = load_replay(ROOT / settings.replay_file)  # an absolute path passes through
         self.pricing = settings.replay_pricing
 
     async def aclose(self) -> None:
@@ -70,6 +69,4 @@ class ReplayClient:
 def make_client(settings: ModelSettings, api_key_fn):
     if settings.backend == "replay":
         return ReplayClient(settings)
-    from .client import OpenRouterClient
-
     return OpenRouterClient(api_key=api_key_fn())

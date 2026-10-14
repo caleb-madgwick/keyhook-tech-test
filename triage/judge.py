@@ -7,9 +7,7 @@ the judge too), the reference action and the agent's action.
 
 from __future__ import annotations
 
-import json
-
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict
 
 from .client import LLMError, OpenRouterClient
 from .config import ModelSettings
@@ -72,6 +70,6 @@ async def judge_action(
         v = JudgeVerdict.model_validate_json(resp.content.strip().removeprefix("```json").removesuffix("```"))
         if v.score not in (0, 1, 2):
             raise ValueError(f"score out of range: {v.score}")
-    except (LLMError, ValidationError, ValueError, json.JSONDecodeError, TypeError) as e:
+    except (LLMError, ValueError, TypeError) as e:  # ValueError covers pydantic and JSON errors
         return {"error": str(e)[:300], "cost_usd": 0.0}
     return {**v.model_dump(), "cost_usd": resp.cost_usd, "judge_model": resp.model_used}

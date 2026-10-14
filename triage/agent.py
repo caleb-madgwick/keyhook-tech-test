@@ -24,7 +24,7 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from .client import LLMError, OpenRouterClient
-from .config import Config, api_key, load_config
+from .config import ROOT, Config, api_key, load_config
 from .guardrails import PreCheck, apply_policy, failsafe_result, format_message_for_llm, precheck
 from .prompts import SYSTEM_PROMPTS
 from .replay import make_client
@@ -139,9 +139,9 @@ async def triage_message(msg: dict, cfg: Config, client: OpenRouterClient) -> Tr
         return failsafe_result(message_id, meta, f"internal error: {type(e).__name__}: {e}", pre or PreCheck(msg=msg))
 
 
-async def triage_batch(messages: list[dict], cfg: Config, concurrency: int | None = None) -> list[TriageResult]:
+async def triage_batch(messages: list[dict], cfg: Config) -> list[TriageResult]:
     client = make_client(cfg.agent, api_key)
-    sem = asyncio.Semaphore(concurrency or cfg.eval.concurrency)
+    sem = asyncio.Semaphore(cfg.eval.concurrency)
 
     async def one(m: dict) -> TriageResult:
         async with sem:
@@ -165,14 +165,13 @@ def main() -> None:
     ap = argparse.ArgumentParser(description="Triage tenant messages.")
     ap.add_argument("--input", required=True)
     ap.add_argument("--out", help="JSONL output path (default: stdout)")
-    ap.add_argument("--config", default=None)
+    ap.add_argument("--config", default=ROOT / "config.yaml")
     ap.add_argument("--model", default=None, help="Override agent model")
     ap.add_argument("--ids", default=None, help="Comma-separated message ids to run")
     ap.add_argument("--replay", default=None, help="Use recorded outputs (JSONL) instead of the API")
     args = ap.parse_args()
 
-    kw = {"model": args.model, "replay": args.replay}
-    cfg = load_config(args.config, **kw) if args.config else load_config(**kw)
+    cfg = load_config(args.config, model=args.model, replay=args.replay)
     messages = load_messages(args.input)
     if args.ids:
         wanted = set(args.ids.split(","))
