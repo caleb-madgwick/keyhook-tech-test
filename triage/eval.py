@@ -427,6 +427,7 @@ def run_eval(cfg: Config, dataset: str, repeats: int, use_judge: bool = True, re
         "dataset": dataset,
         "split": split,
         "group": group,
+        "ids": sorted(ids) if ids else None,
         "model": cfg.agent.model,
         "backend": cfg.agent.backend,
         "prompt_version": cfg.agent.prompt_version,

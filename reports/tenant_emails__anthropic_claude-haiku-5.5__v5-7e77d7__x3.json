@@ -1,0 +1,240 @@
+{
+  "dataset": "tenant_emails.json",
+  "split": "all",
+  "group": null,
+  "ids": null,
+  "model": "anthropic/claude-haiku-5.5",
+  "backend": "openrouter",
+  "prompt_version": "v5",
+  "prompt_digest": "7e77d7",
+  "judge_model": null,
+  "repeats": 3,
+  "n_messages": 30,
+  "run_dir": "runs/tenant_emails__ff71b3/anthropic_claude-haiku-5.5__v5__13ca97a921",
+  "spent_this_run": {
+    "agent": 0.0,
+    "judge": 0.0,
+    "skipped_for_budget": 0
+  },
+  "metrics": {
+    "category": {
+      "n": 90,
+      "strict_accuracy": 0.9555555555555556,
+      "lenient_accuracy": 0.9888888888888889,
+      "also_mentions_precision": 0.7058823529411765,
+      "also_mentions_recall": 0.6666666666666666,
+      "confusion": {
+        "maintenance": {
+          "maintenance": 45,
+          "arrears": 0,
+          "complaint": 0,
+          "enquiry": 0,
+          "other": 0
+        },
+        "arrears": {
+          "maintenance": 0,
+          "arrears": 6,
+          "complaint": 0,
+          "enquiry": 0,
+          "other": 0
+        },
+        "complaint": {
+          "maintenance": 0,
+          "arrears": 0,
+          "complaint": 6,
+          "enquiry": 0,
+          "other": 0
+        },
+        "enquiry": {
+          "maintenance": 3,
+          "arrears": 0,
+          "complaint": 0,
+          "enquiry": 18,
+          "other": 0
+        },
+        "other": {
+          "maintenance": 1,
+          "arrears": 0,
+          "complaint": 0,
+          "enquiry": 0,
+          "other": 11
+        }
+      }
+    },
+    "urgency": {
+      "n": 90,
+      "accuracy": 0.9222222222222223,
+      "under_triage": 0,
+      "over_triage": 7,
+      "emergency_recall": 1.0,
+      "emergency_n": 6,
+      "confusion": {
+        "emergency": {
+          "emergency": 6,
+          "urgent": 0,
+          "routine": 0
+        },
+        "urgent": {
+          "emergency": 7,
+          "urgent": 26,
+          "routine": 0
+        },
+        "routine": {
+          "emergency": 0,
+          "urgent": 0,
+          "routine": 51
+        }
+      }
+    },
+    "escalation": {
+      "n": 90,
+      "accuracy": 0.9777777777777777,
+      "recall": 1.0,
+      "precision": 0.9574468085106383,
+      "f1": 0.9782608695652174,
+      "tp": 45,
+      "fp": 2,
+      "fn": 0,
+      "tn": 43
+    },
+    "reliability": {
+      "n": 90,
+      "failsafe_count": 0,
+      "retried_count": 0,
+      "latency_p50_ms": 4074.0,
+      "latency_p95_ms": 9625,
+      "mean_cost_usd": 0.0004044198333333334,
+      "total_cost_usd": 0.036397785,
+      "mean_input_tokens": 5436.8,
+      "mean_cached_input_tokens": 5180.788888888889,
+      "mean_output_tokens": 651.1111111111111
+    },
+    "consistency": {
+      "messages_with_repeats": 30,
+      "stable_rate": 0.8666666666666667,
+      "unstable_ids": [
+        "msg_005",
+        "msg_020",
+        "msg_022",
+        "msg_023"
+      ]
+    },
+    "judge": null,
+    "pass_rate": 0.8555555555555555,
+    "by_split": {
+      "dev": {
+        "n": 90,
+        "pass_rate": 0.8555555555555555,
+        "category": 0.9555555555555556,
+        "urgency": 0.9222222222222223,
+        "escalation": 0.9777777777777777,
+        "escalation_recall": 1.0,
+        "under_triage": 0
+      }
+    },
+    "by_group": {},
+    "by_confidence": {
+      "high": {
+        "n": 73,
+        "pass_rate": 0.863013698630137,
+        "category": 0.958904109589041,
+        "urgency": 0.9178082191780822,
+        "escalation": 0.9863013698630136,
+        "escalation_recall": 1.0,
+        "under_triage": 0
+      },
+      "low": {
+        "n": 3,
+        "pass_rate": 0.6666666666666666,
+        "category": 0.6666666666666666,
+        "urgency": 1.0,
+        "escalation": 1.0,
+        "escalation_recall": 1.0,
+        "under_triage": 0
+      },
+      "medium": {
+        "n": 14,
+        "pass_rate": 0.8571428571428571,
+        "category": 1.0,
+        "urgency": 0.9285714285714286,
+        "escalation": 0.9285714285714286,
+        "escalation_recall": 1.0,
+        "under_triage": 0
+      }
+    },
+    "failing_tags": []
+  },
+  "gates": [
+    {
+      "name": "No fail-safe results",
+      "passed": true,
+      "detail": "0 fail-safe"
+    },
+    {
+      "name": "Emergency recall = 100%",
+      "passed": true,
+      "detail": "100% of 6"
+    },
+    {
+      "name": "Escalation recall >= 90%",
+      "passed": true,
+      "detail": "100% (0 missed)"
+    },
+    {
+      "name": "msg_002: emergency",
+      "passed": true,
+      "detail": "ok"
+    },
+    {
+      "name": "msg_002: escalate",
+      "passed": true,
+      "detail": "ok"
+    },
+    {
+      "name": "msg_003: escalate",
+      "passed": true,
+      "detail": "ok"
+    },
+    {
+      "name": "msg_013: escalate",
+      "passed": true,
+      "detail": "ok"
+    },
+    {
+      "name": "msg_014: emergency",
+      "passed": true,
+      "detail": "ok"
+    },
+    {
+      "name": "msg_014: escalate",
+      "passed": true,
+      "detail": "ok"
+    },
+    {
+      "name": "msg_016: escalate",
+      "passed": true,
+      "detail": "ok"
+    },
+    {
+      "name": "msg_016: not_emergency",
+      "passed": true,
+      "detail": "ok"
+    },
+    {
+      "name": "msg_019: escalate",
+      "passed": true,
+      "detail": "ok"
+    },
+    {
+      "name": "msg_020: escalate",
+      "passed": true,
+      "detail": "ok"
+    },
+    {
+      "name": "msg_027: escalate",
+      "passed": true,
+      "detail": "ok"
+    }
+  ],
+  "gates_passed": true
+}

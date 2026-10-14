@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from datetime import datetime, timezone
@@ -47,6 +48,13 @@ def report_paths(summary: dict) -> tuple[Path, Path]:
         stem += f"__{summary['split']}"
     if summary.get("group"):
         stem += f"__{summary['group']}"
+    # A subset or multi-repeat run gets its own file, so it never overwrites the full single-repeat report
+    # (an --ids smoke run once replaced the 349-message Haiku report with a 1-message one).
+    if summary.get("ids"):
+        ids = sorted(summary["ids"])
+        stem += f"__ids-{len(ids)}-{hashlib.sha256(','.join(ids).encode()).hexdigest()[:6]}"
+    if summary.get("repeats", 1) > 1:
+        stem += f"__x{summary['repeats']}"
     return ROOT / "reports" / f"{stem}.md", ROOT / "reports" / f"{stem}.json"
 
 

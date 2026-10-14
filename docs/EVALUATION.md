@@ -54,7 +54,7 @@ Labels I think are debatable were recorded in [data/label_notes.json](../data/la
 
 ## Live model comparison (15 Oct 2026)
 
-All five models ran live through OpenRouter with the same prompt, schema and pipeline. Keyhook's 30 ran with 3 repeats per model, and the judge (`openai/gpt-6-sol`) scored repeat 0. The full suite ran on four models; Sonnet ran on the 93 holdout messages only, for cost. Haiku and Luna also ran on both blind sets. Reports are in `reports/`, named after each model, with side-by-side tables in `reports/model_comparison__*.md`.
+All five models ran live through OpenRouter with the same prompt, schema and pipeline. Keyhook's 30 ran with 3 repeats per model, and the judge (`openai/gpt-6-sol`) scored repeat 0. The full suite ran on four models; Sonnet ran on the 93 holdout messages only, for cost. Haiku and Luna also ran on both blind sets. Reports are in `reports/`, named after each model, with side-by-side tables in `reports/model_comparison__*.md`. The per-model Keyhook-30 reports cover the judged repeat 0; Haiku's 3-repeat report (the README's figures) is `tenant_emails__anthropic_claude-haiku-5.5__v5-7e77d7__x3.md`.
 
 | Live, 15 Oct 2026 | **Haiku 5.5** | GPT-6 Luna | Sonnet 5.5 | DeepSeek V4 Flash | Gemini 3.5 Flash Lite |
 |---|---|---|---|---|---|

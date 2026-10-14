@@ -1,6 +1,6 @@
 # AI session history
 
-I built this project with Claude Code in three sittings on 14 and 15 October 2026 (AEDT), about 4 hours of active work in all (see the README's *Time spent*). This folder holds every prompt I gave it and a readable transcript of every session.
+I built this project with Claude Code in three sittings on 14 and 15 October 2026 (AEDT), about 4 hours of active work in all: 14 Oct 16:36–17:18 (plan and build), 14 Oct 22:51–00:08 (prompt iterations, blind set, code and security reviews) and 15 Oct 08:25–10:45 (label check, review fixes, live model runs; about 30 minutes of that was waiting on API runs). Session times below run from a session's first to last message, so a session left open between sittings (session 1, for example) spans hours it wasn't in use. This folder holds every prompt I gave it and a readable transcript of every session.
 
 - **[prompts.md](prompts.md)**: all the prompts on one page, grouped by session.
 - **[senior_engineer_review.md](senior_engineer_review.md)**: the LLM code review written during the build, kept as a historical record.

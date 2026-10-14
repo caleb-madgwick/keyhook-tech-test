@@ -28,6 +28,7 @@ TITLES = OrderedDict([
     ("d4e0b768-9fa3-4858-88b2-6b6458586401", "Status check, final fixes, label review and README rewrite"),
     ("37305a26-8c08-4d0c-b9eb-7246aa3440d6", "Simplify pass over the whole project"),
     ("a9090878-7bc0-40e5-95da-e9bb74a0c148", "Mock Keyhook review, fixes, live model runs and this export"),
+    ("376ab0ed-5fa0-412c-bf89-d46c091437fd", "Final pre-submission review, report fixes and two-page README"),
 ])
 
 def clean(t: str) -> str:

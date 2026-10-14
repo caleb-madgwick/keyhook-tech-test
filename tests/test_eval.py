@@ -227,3 +227,13 @@ def test_baseline_runs(capsys, monkeypatch):
     monkeypatch.setattr("sys.argv", ["baseline", "--dataset", "tenant_emails.json"])
     baseline.main()
     assert "pass rate" in capsys.readouterr().out
+
+
+def test_subset_and_repeat_runs_never_overwrite_the_full_report():
+    base = {"dataset": "suite.json", "model": "m/x", "prompt_version": "v5", "prompt_digest": "abc", "repeats": 1}
+    full, _ = rep.report_paths(base)
+    subset, _ = rep.report_paths({**base, "ids": ["msg_002"]})
+    repeated, _ = rep.report_paths({**base, "repeats": 3})
+    assert full.name == "suite__m_x__v5-abc.md"
+    assert len({full, subset, repeated}) == 3
+    assert rep.report_paths({**base, "ids": ["b", "a"]}) == rep.report_paths({**base, "ids": ["a", "b"]})

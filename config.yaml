@@ -31,7 +31,7 @@ agent:
 
 policy:
   # Model-reported confidence levels that force human review. "medium" was added after measuring
-  # the trade-off on every dataset (README: escalation policy): it raises escalation recall
+  # the trade-off on every dataset (PROMPT_CHANGELOG.md, medium-confidence entry): it raises escalation recall
   # everywhere for ~6-13% more PM reviews. Applied at scoring time - changing it costs nothing.
   escalate_on_confidence: [low, medium]
 
