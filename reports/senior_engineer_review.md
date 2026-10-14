@@ -171,3 +171,69 @@ I re-probed every finding myself rather than relying on the change summary. Test
 1. **Do one real run on the cheap model**, and report dev and holdout separately with an explicit caveat. Nothing has been measured yet.
 2. **Fix N2 and N3.** Drop the bare `above` branch or require an AI-directed verb after it, and make the budget global across `compare`.
 3. **Complete the cache key (N1) and reconcile the primary-category prompt with the code (M2).** Either drop the "complaint even if repair underneath" sentence, or let `primary_issue` win across urgency levels when no issue is an emergency.
+
+## Final re-review
+
+Read-only, apart from this section. No API calls. I didn't open message contents from `data/blind_set.json` or `data/blind_test_set.json`. I read only label fields, ids, aggregates and git history.
+
+**The repo was changing during the review.** Other sessions were editing it while I worked. Two mid-edit snapshots failed tests (1 and 4 failures). So I waited until no file had changed for 150 seconds, snapshotted the repo to a scratch directory, and ran everything there. On that snapshot all 151 tests pass. Freeze the repo before you submit.
+
+### Updated scorecard
+
+| Area | Before | Final | Justification |
+|---|---|---|---|
+| Architecture & framing | 4 | 4 | Still sound. Emergency safety text now comes from code, and a keyword baseline shows what plain code achieves. The 3k-token prompt encodes this dataset's conventions. |
+| Correctness | 4 | 4 | Every earlier finding I re-probed is fixed. N2 (regex false positives) and N3 (spend cap) are gone, with a $10 total cap kept in a spend ledger. I found no new logic bug in replay, offline, judge-replay or policy. |
+| Safety & failure handling | 4 | 4 | Good: the emergency preamble is owned by code, the fail-safe hazard text is fixed, and invisible-character and delimiter attacks are hardened. But none of it has ever run against a live provider. |
+| Evaluation quality | 3 | 3 | Excellent machinery, but compromised integrity (E1–E4) and no real-model numbers. |
+| Test quality | 4 | 4 | 151 meaningful offline tests. |
+| Code quality & readability | 4 | 4 | Clear code, and the changelog is unusually thorough. |
+| Production readiness | 3 | 3 | The live path has never run once: provider routing, strict schema, the `temperature` removal and prompt caching. |
+| Config/operability for graders | 4 | 4 | Config- and env-driven, replay costs nothing, and there are spend caps. |
+| Honesty of claims (new) | – | 3 | Mostly candid, but there is one material false claim (E1), and the README contradicts itself on cost. |
+
+**Overall: 7/10.** The engineering improved. But the same evaluation-integrity issues that limit the score at 7 also cancel out most of the gain from replay.
+
+### README numbers verified
+
+I re-ran `triage.eval --replay … --judge-replay …` for every row. The seed set, dev, holdout, Claude blind set, ChatGPT blind first 90 and ChatGPT blind last 30 all **match the README table exactly**. All gates pass. The keyword baseline also matches (the README shows 21% pass where I get 22%, and over-triage as "n/a" where it is 9).
+
+### Integrity findings
+
+**E1 (Critical, CONFIRMED): ChatGPT blind-set labels were changed after model runs, towards the model's answers. The README says the opposite.**
+- **The claim:** README line 102 says "Label review… All of this happened before any model run."
+- **Git history:** the only commit (23:35) has `changes: []` in `data/blind_label_review.json` and the original labels in `data/blind_test_set.json`. The frozen v4 result was written at 23:29 and the v5 blind replays at 23:35. The 6 corrections exist only in the uncommitted working tree, modified at 23:39.
+- **Direction of the changes:** I compared the v5 predictions with the old and new labels. In 5 of the 6 changes, every edited field now matches v5's output; none moves away from it. One example: `blind_043` (escalate true → false) turns v5's only escalation miss on the first 90 into a correct answer.
+- **Effect:** first-90 escalation recall goes from **98% to 100%** and pass rate from 73% to 76%. The v5 changelog entry itself reports "escalation recall 98%" for these 90 messages, and the README shows 100%.
+- **Is the rationale wrong?** The stated reason ("Keyhook conventions") may well be defensible. The timing claim is false.
+- **Fix:** say plainly that the corrections were made after the runs. Report both the original-label and corrected-label numbers, and treat the first 90 as post-hoc under both.
+
+**E2 (High, CONFIRMED): the "official" frozen blind result uses a policy chosen on that same blind set.**
+- `FROZEN_blind_test_set_v4.json` stores both policies. The README cites the `low medium` figures as official, but the changelog says medium-confidence escalation was adopted *because of* this set.
+- **The pre-registered policy** (`low`) on the original labels: escalation recall 90.4% (47 of 52), and emergency recall the same 88%.
+- **A contradiction:** the changelog's trigger figure ("89%, just under the gate") doesn't match the frozen file (90.4%). It may come from the earlier 60-message scoring.
+
+**E3 (Medium, CONFIRMED): the Claude blind set is labelled "blind for v5", but it chose the policy.**
+- README line 185 justifies medium-confidence escalation with "73% vs 98% … on the Claude blind set". So that set's aggregates set the policy.
+- **Weak enforcement of blindness:** the harness writes full error dumps for blind sets into `reports/` (25 and 36 entries, with message bodies, labels and rationales). That is in a repo where several sessions work at once. "Only aggregate scores were looked at" can't be enforced or audited, and `ai-sessions/` is empty.
+
+**E4 (High, PLAUSIBLE): the replay proxy is weaker than the README presents it.**
+- **How the answers were produced:** one subagent answered 25 messages in one context, so answers are not independent calls. Subagents saw `system_prompt.md` (the prompt plus the schema as text), not strict structured output. They ran inside a Claude Code agent's own system prompt, on an unknown Haiku version, with no sampling control.
+- **"They never saw labels or code" can't be verified.** No session logs exist, and the subagents ran in a repo that contains the labels.
+- **Circularity:** Claude labelled the suite, Claude wrote the second blind set, Claude stands in for the agent, and Claude judges. `config.yaml` says the judge is deliberately a different family, yet every reported judge score comes from Sonnet.
+
+### Smaller issues (CONFIRMED)
+
+- **The README contradicts itself on cost:** $0.61 per 1,000 messages at line 65, but $0.51 at line 157 with the stale v4 token counts. The harness now reports $0.58–0.61.
+- **Test count is stale:** the README says 132 tests; there are 151.
+- **The only blind-for-v5 ChatGPT evidence is tiny:** 30 messages, 1 emergency and 12 escalation positives. "92% recall" is 11 of 12, with a 95% interval of roughly 62–100%.
+- **`offline.import` silently keeps the last answer when an id is answered twice.** I checked every answer directory and found no re-answered ids, so there is no evidence of cherry-picking. But nothing would detect it.
+- **The baseline is a bit of a strawman.** Its regexes have no trailing word boundary, so "fire" matches "I got fired".
+
+### What still stops this being a 10
+
+1. **No real API run.** Every number comes from a proxy, and the live path has never executed. One `triage.compare --split dev` run (under $5 for all five models) would replace "should" with "does".
+2. **Evaluation integrity (E1–E3).** Correct the timing claim and report the original-label numbers. Make the frozen low-only result the official blind number. Stop calling the Claude blind set blind for policy decisions. Stop writing blind error details into the repo.
+3. **The labels and the judge come from the agent's own model family.** Ground truth beyond Keyhook's 30 is AI-written and unreviewed: `checked_ids` is empty, even though the review note claims a human review. The judge is uncalibrated. Twenty PM-labelled messages would be worth more than another 300 generated ones.
+4. **Truly blind evidence is statistically thin,** and the 30 seed messages contain only 2 emergencies.
+5. **Process hygiene.** Submit a frozen, committed state with session logs, and a README whose numbers match a single source.

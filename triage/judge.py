@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 
 from .client import LLMError, OpenRouterClient
 from .config import ModelSettings
-from .guardrails import format_message_for_llm
+from .guardrails import format_message_for_llm, precheck
 
 JUDGE_PROMPT_VERSION = "j1"
 
@@ -46,8 +46,9 @@ JUDGE_SCHEMA = {
 
 
 def build_judge_user(msg: dict, expected_action: str, proposed: str) -> str:
+    # Strip invisible characters as the agent's pre-check does, so hidden text can't reach the judge either.
     return (
-        f"{format_message_for_llm(msg)}\n\n"
+        f"{format_message_for_llm(precheck(msg).msg)}\n\n"
         f"<reference_action>\n{expected_action}\n</reference_action>\n\n"
         f"<proposed_action>\n{proposed}\n</proposed_action>"
     )

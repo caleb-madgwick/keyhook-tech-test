@@ -95,6 +95,7 @@ async def call_model(pre: PreCheck, cfg: Config, client: OpenRouterClient) -> Mo
         meta.model_used = resp.model_used
         meta.finish_reason = resp.finish_reason
         meta.input_tokens += resp.input_tokens
+        meta.cached_input_tokens += resp.cached_input_tokens
         meta.output_tokens += resp.output_tokens
         meta.cost_usd += resp.cost_usd
         meta.latency_ms += resp.latency_ms
@@ -128,12 +129,14 @@ def finalize(message_id: str, outcome: ModelOutcome, pre: PreCheck, cfg: Config)
 async def triage_message(msg: dict, cfg: Config, client: OpenRouterClient) -> TriageResult:
     """Never raises: any unexpected error becomes a fail-safe (escalated) result."""
     message_id = str(msg.get("id", "unknown"))
+    pre: PreCheck | None = None
     try:
         pre = precheck(msg)
         return finalize(message_id, await call_model(pre, cfg, client), pre, cfg)
     except Exception as e:  # noqa: BLE001 - last line of defence; a crash must not drop a message
         meta = Meta(model_requested=cfg.agent.model, prompt_version=cfg.agent.prompt_version)
-        return failsafe_result(message_id, meta, f"internal error: {type(e).__name__}: {e}", PreCheck(msg=msg))
+        # Keep any injection / obfuscation findings if the pre-check got that far.
+        return failsafe_result(message_id, meta, f"internal error: {type(e).__name__}: {e}", pre or PreCheck(msg=msg))
 
 
 async def triage_batch(messages: list[dict], cfg: Config, concurrency: int | None = None) -> list[TriageResult]:

@@ -20,16 +20,17 @@ from .metrics import category_metrics, escalation_metrics, message_pass, urgency
 
 
 def _any(words: str, text: str) -> bool:
-    return re.search(rf"\b({words})", text, re.IGNORECASE) is not None
+    # Whole words only: "fire" must not match "I got fired".
+    return re.search(rf"(?<!\w)({words})(?!\w)", text, re.IGNORECASE) is not None
 
 
-EMERGENCY = r"gas smell|smell(s|ing)? (of )?gas|smoke|fire|flames|sparking|sparks|burst|flooding|sewage|carbon monoxide|collaps"
-URGENT = r"no hot water|no power|no heat|heat pump|won'?t lock|can'?t lock|smoke alarm|mould|rats|mice|leak|broken window|locked out|toilet"
+EMERGENCY = r"gas smell|smell(s|ing)? (of )?gas|smoke|fire|flames|sparking|sparks|burst|flooding|sewage|carbon monoxide|collaps\w*"
+URGENT = r"no hot water|no power|no heat|heat pump|won'?t lock|can'?t lock|smoke alarm|mould|rats|mice|leak\w*|broken window|locked out|toilet"
 ARREARS = r"rent|arrears|payment|paid|pay\b|behind|overdue"
-COMPLAINT = r"complain|noise|neighbour|rude|unacceptable|joke|disappointed|not happy|fed up"
-MAINT = r"broken|leak|not working|isn'?t working|repair|fix|dripping|blocked|faulty|crack|damaged|stuck"
+COMPLAINT = r"complain\w*|noise|neighbour|rude|unacceptable|joke|disappointed|not happy|fed up"
+MAINT = r"broken|leak\w*|not working|isn'?t working|repair\w*|fix\w*|dripping|blocked|faulty|crack\w*|damaged|stuck"
 ENQUIRY = r"\?|can (i|we)|is it ok|allowed|permission|bond|inspection|lease|notice|application|viewing"
-OTHER = r"thank|unsubscribe|out of office|on leave|auto-?reply|undeliverable"
+OTHER = r"thank\w*|unsubscribe|out of office|on leave|auto-?reply|undeliverable"
 ESCALATE = r"tribunal|lawyer|legal|lost my job|can'?t pay|hardship|winz|break (the|my) lease|end the tenancy|threat|unsafe|scared"
 
 

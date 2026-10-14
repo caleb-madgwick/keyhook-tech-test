@@ -27,7 +27,8 @@ def input_key(system_prompt: str, user_message: str) -> str:
 
 def estimate_tokens(text: str) -> int:
     # ~4 bytes/token for English, ~1 token per CJK char (3 bytes); 3.5 bytes/token is a rough
-    # middle. Only used for cost ESTIMATES in replay mode.
+    # middle. Only used for cost ESTIMATES in replay mode. Newer tokenizers (Claude Haiku 5.5's
+    # counts ~30% more tokens than Haiku 4.5's) may run higher; real runs use provider counts.
     return max(1, round(len(text.encode("utf-8")) / 3.5))
 
 
@@ -59,6 +60,8 @@ class ReplayClient:
             raise LLMError("replay: no recorded output for this exact input", status=None)
         content = rec["content"]
         tin = sum(estimate_tokens(m["content"]) for m in messages)
+        if json_schema is not None:  # a structured-output schema is billed as input too
+            tin += estimate_tokens(json.dumps(json_schema))
         tout = estimate_tokens(content)
         cost = tin * self.pricing.get("input", 0) / 1e6 + tout * self.pricing.get("output", 0) / 1e6
         return LLMResponse(content, f"replay:{rec.get('producer', 'unknown')}", tin, tout, cost, 0, "stop")

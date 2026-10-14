@@ -16,13 +16,18 @@ ROOT = Path(__file__).resolve().parent.parent
 class ModelSettings(BaseModel):
     model: str
     fallback_models: list[str] = Field(default_factory=list)
-    temperature: float = 0
+    # None = don't send it. Claude Haiku 5.5 / Sonnet 5.5 and GPT-6 don't accept temperature on
+    # OpenRouter, and with provider.require_parameters a request that sets it finds no provider.
+    temperature: float | None = None
     max_tokens: int = 1500
     timeout_s: float = 60
     max_retries: int = 2
     prompt_version: str = "v1"
     reasoning: dict[str, Any] | None = None
     provider: dict[str, Any] | None = None
+    # Mark the system prompt as a prompt-cache breakpoint (Anthropic models only; the other
+    # compared providers cache automatically). Doesn't change model output.
+    prompt_cache: bool = False
     # "openrouter" calls the API. "replay" reads recorded model outputs from replay_file (see
     # triage/replay.py) so the whole pipeline can be run and scored without spending anything.
     backend: Literal["openrouter", "replay"] = "openrouter"

@@ -29,7 +29,7 @@ from datetime import datetime, timezone
 from .agent import ModelOutcome, build_user_message, call_model, finalize, load_messages
 from .config import ROOT, Config, api_key, load_config
 from .guardrails import PreCheck, failsafe_result, precheck
-from .judge import JUDGE_PROMPT_VERSION, JUDGE_SCHEMA, JUDGE_SYSTEM, judge_action
+from .judge import JUDGE_PROMPT_VERSION, JUDGE_SCHEMA, JUDGE_SYSTEM, build_judge_user, judge_action
 from .metrics import (
     breakdown,
     category_metrics,
@@ -132,7 +132,7 @@ def _slug(text: str) -> str:
 def run_dir_for(cfg: Config, dataset: str) -> Path:
     """Cache key = everything that changes the model's output."""
     key = {
-        "settings": cfg.agent.model_dump(exclude={"timeout_s", "max_retries"}),
+        "settings": cfg.agent.model_dump(exclude={"timeout_s", "max_retries", "prompt_cache"}),
         "system_prompt": SYSTEM_PROMPTS[cfg.agent.prompt_version],
         "schema": LLM_JSON_SCHEMA,
     }
@@ -140,13 +140,13 @@ def run_dir_for(cfg: Config, dataset: str) -> Path:
         rf = Path(cfg.agent.replay_file)
         rf = rf if rf.is_absolute() else ROOT / rf
         key["replay_digest"] = hashlib.sha256(rf.read_bytes()).hexdigest() if rf.exists() else "missing"
-    ds = Path(dataset).resolve()
+    ds = (ROOT / dataset).resolve()  # same file as run_eval loads, whatever the cwd (absolute paths pass through)
     ds_dir = f"{_slug(ds.stem)}__{_digest(str(ds))[:6]}"
     return ROOT / "runs" / ds_dir / f"{_slug(cfg.agent.model)}__{cfg.agent.prompt_version}__{_digest(key)}"
 
 
 def judge_file_for(cfg: Config, run_dir: Path) -> Path:
-    key = {"settings": cfg.judge.model_dump(exclude={"timeout_s", "max_retries"}),
+    key = {"settings": cfg.judge.model_dump(exclude={"timeout_s", "max_retries", "prompt_cache"}),
            "system": JUDGE_SYSTEM, "schema": JUDGE_SCHEMA}
     return run_dir / f"judge_{JUDGE_PROMPT_VERSION}_{_slug(cfg.judge.model)}_{_digest(key)}.jsonl"
 
@@ -260,16 +260,37 @@ async def _run(cfg: Config, messages: list[dict], repeats: int, use_judge: bool,
 
         by_id_all = {m["id"]: m for m in messages}
 
+        actions: dict[tuple[str, int], str] = {}
+
         def final_action(key) -> str:
             # Judge what a PM would actually see: the action AFTER the policy code.
-            return _prediction(cached[key], by_id_all[key[0]], cfg)["required_action"]
+            if key not in actions:  # rebuilding it reruns precheck and the policy, so do it once per key
+                actions[key] = _prediction(cached[key], by_id_all[key[0]], cfg)["required_action"]
+            return actions[key]
 
-        def action_hash(key) -> str:
-            return _digest(final_action(key))
+        def judge_input_hash(key) -> str:
+            # Everything the judge sees: the message, the labelled reference action and the agent's action.
+            m = by_id_all[key[0]]
+            return _digest(build_judge_user(m, m.get("expected", {}).get("expected_action") or "", final_action(key)))
 
-        # A verdict is only valid for the exact action it judged.
+        # Verdicts recorded before judge_input_hash existed carry only `action_hash`. A live judge reuses
+        # them when the action still matches (the old rule) rather than paying to re-judge every cached
+        # key, though they can't notice a corrected label. A replay judge re-judges them for free.
+        reuse_legacy = cfg.judge.backend != "replay"
+
+        def verdict_valid(key, rec: dict) -> bool:
+            # A verdict is only valid for the exact judge input it was given: a corrected label or an
+            # edited message invalidates it, not just a changed action.
+            if "judge_input_hash" in rec:
+                return rec["judge_input_hash"] == judge_input_hash(key)
+            return reuse_legacy and rec.get("action_hash") == _digest(final_action(key))
+
         judged = {key: rec for key, rec in (_load_jsonl(judge_path) if use_judge else {}).items()
-                  if key in cached and key[0] in by_id_all and rec.get("action_hash") == action_hash(key)}
+                  if key in cached and key[0] in by_id_all and verdict_valid(key, rec)}
+        legacy = sum("judge_input_hash" not in rec for rec in judged.values())
+        if legacy:
+            print(f"Reusing {legacy} judge verdicts keyed on the action only (recorded before label changes "
+                  f"were tracked); delete {judge_path} to re-judge them.", file=sys.stderr)
         if use_judge:
             by_id = {m["id"]: m for m in messages}
             jtodo = [key for key in cached
@@ -286,7 +307,7 @@ async def _run(cfg: Config, messages: list[dict], repeats: int, use_judge: bool,
                                            final_action(key))
                 if cfg.judge.backend != "replay":
                     record_spend("judge", v.get("cost_usd", 0.0), cfg.judge.model)
-                rec = {"id": mid, "repeat": k, "action_hash": action_hash(key), "judge": v}
+                rec = {"id": mid, "repeat": k, "judge_input_hash": judge_input_hash(key), "judge": v}
                 if "error" not in v:  # don't cache judge errors, so they're retried next run
                     _append_jsonl(judge_path, rec)
                 judged[key] = rec

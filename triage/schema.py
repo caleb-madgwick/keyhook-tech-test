@@ -80,6 +80,7 @@ class Meta(BaseModel):
     model_used: str | None = None
     prompt_version: str
     input_tokens: int = 0
+    cached_input_tokens: int = 0
     output_tokens: int = 0
     cost_usd: float = 0.0
     latency_ms: int = 0

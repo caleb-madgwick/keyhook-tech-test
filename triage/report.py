@@ -46,6 +46,10 @@ def report_paths(summary: dict) -> tuple[Path, Path]:
     return ROOT / "reports" / f"{stem}.md", ROOT / "reports" / f"{stem}.json"
 
 
+def is_blind_dataset(dataset: str) -> bool:
+    return "blind" in Path(dataset).stem.lower()
+
+
 def write_report(summary: dict, rows: list[dict], messages: dict[str, dict], disputed: dict[str, str]) -> Path:
     md_path, json_path = report_paths(summary)
     md_path.parent.mkdir(exist_ok=True)
@@ -131,6 +135,12 @@ def write_report(summary: dict, rows: list[dict], messages: dict[str, dict], dis
     errors = per_message_errors(rows)
     if not errors:
         L.append("_None._")
+    if is_blind_dataset(summary["dataset"]):
+        # Blind sets must stay blind: never write their messages, labels or rationales to disk in a
+        # report, so "only aggregates were looked at" is something the repo itself can guarantee.
+        L.append(f"_{len(errors)} error(s) withheld: `{summary['dataset']}` is a blind set, so only aggregate "
+                 "metrics are reported. Inspect individual errors only with an explicit, logged decision._")
+        errors = []
     dev_errors = [x for x in errors if x["row"].get("split", "dev") == "dev"]
     holdout_errors = [x for x in errors if x["row"].get("split") == "holdout"]
     ordered = [("Dev-set errors", dev_errors), ("Holdout errors (do not read while tuning the prompt)", holdout_errors)]

@@ -81,6 +81,7 @@ def import_answers(directory: Path, out: Path, producer: str) -> None:
     manifest = json.loads((directory / "manifest.json").read_text())
     keys: dict[str, str] = manifest["keys"]
     seen: dict[str, dict] = {}
+    conflicts: list[str] = []
     bad = 0
     for path in sorted(directory.glob("answers_*.jsonl")):
         for line in path.read_text().splitlines():
@@ -96,7 +97,12 @@ def import_answers(directory: Path, out: Path, producer: str) -> None:
                 bad += 1
                 continue
             content = output if isinstance(output, str) else json.dumps(output, ensure_ascii=False)
+            if mid in seen and seen[mid]["content"] != content:
+                conflicts.append(mid)  # answered twice with different content: refuse to pick one silently
             seen[mid] = {"input_key": keys[mid], "id": mid, "content": content, "producer": producer}
+    if conflicts:
+        raise SystemExit(f"Refusing to import: {len(conflicts)} id(s) answered twice with different content: "
+                         f"{', '.join(sorted(set(conflicts))[:20])}")
     out.parent.mkdir(parents=True, exist_ok=True)
     with out.open("w") as f:
         for mid in keys:

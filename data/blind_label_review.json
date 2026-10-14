@@ -1,8 +1,81 @@
 {
   "note": "Human review of ChatGPT's labels in data/blind_raw/, done BEFORE any model is run on the blind set. Every emergency, escalated and low-confidence label is checked (list printed by scripts/build_blind_set.py). Corrections are applied in data/blind_raw/batch_*.json and logged here with the original label, so the change history is auditable.",
-  "reviewer": "Caleb Madgwick",
+  "reviewer": "Changes proposed by Claude Code from a cross-check against Keyhook's seed labels; approved by Caleb Madgwick.",
   "checked_ids": [],
-  "changes": [],
+  "changes": [
+    {
+      "id": "blind_014",
+      "before": {
+        "also_mentions": [
+          "arrears"
+        ]
+      },
+      "after": {
+        "also_mentions": []
+      },
+      "reason": "Rent increase with nothing owed: Keyhook's arrears definition covers missed/late/partial payments and arrangements, so arrears is not a secondary category."
+    },
+    {
+      "id": "blind_026",
+      "before": {
+        "category": "enquiry"
+      },
+      "after": {
+        "category": "maintenance"
+      },
+      "reason": "Keyhook labels a lockout (seed msg_011) as maintenance; aligned to Keyhook's convention."
+    },
+    {
+      "id": "blind_043",
+      "before": {
+        "escalate_to_human": true
+      },
+      "after": {
+        "escalate_to_human": false
+      },
+      "reason": "Keyhook does not escalate a comparable routine consent request (seed msg_023, fibre install)."
+    },
+    {
+      "id": "blind_049",
+      "before": {
+        "category": "enquiry"
+      },
+      "after": {
+        "category": "other"
+      },
+      "reason": "Keyhook labels the near-identical vague message (seed msg_020, 'its happening again') as other."
+    },
+    {
+      "id": "blind_059",
+      "before": {
+        "also_mentions": [
+          "enquiry"
+        ]
+      },
+      "after": {
+        "also_mentions": []
+      },
+      "reason": "'enquiry' secondary category had no basis in the message."
+    },
+    {
+      "id": "blind_088",
+      "before": {
+        "category": "enquiry",
+        "also_mentions": [
+          "maintenance",
+          "complaint"
+        ]
+      },
+      "after": {
+        "category": "maintenance",
+        "also_mentions": [
+          "enquiry",
+          "complaint"
+        ]
+      },
+      "reason": "Made consistent with blind_022 (same situation type: family violence with damage to the home), which uses maintenance as primary. Urgency deliberately kept at emergency: the violence happened tonight and the partner is in the house."
+    }
+  ],
   "flags_for_reviewer": {
     "blind_026": "Lockout labelled 'enquiry'. Keyhook's own seed label for a lockout (msg_011) is 'maintenance' (urgent, escalated). Suggest aligning to Keyhook's convention.",
     "blind_014": "Rent increase with nothing owed has 'arrears' in also_mentions. Keyhook's arrears definition is about payments (missed/late/partial/arrangements); arguably also_mentions should be empty.",
@@ -11,6 +84,9 @@
     "blind_043": "Routine alteration consent (TV bracket) escalated. Keyhook's seed msg_023 (landlord consent for fibre) is NOT escalated. Suggest escalate=false. Same question applies to blind_006 (pet + partner moving in), though adding an occupant is closer to msg_021 (flatmate change, escalated).",
     "blind_088": "Family violence labelled 'enquiry' primary, whereas the same situation in blind_022 is 'maintenance'. The two should be made consistent. Urgency 'emergency' is also debatable: the partner is asleep and the threat is about leaving, not happening this minute ('urgent' fits Keyhook's 'security risk' wording).",
     "blind_072": "Close paraphrase of Keyhook seed msg_021 (flatmate leaving, replacement found). Labels match Keyhook. Fine to keep; noted because similar cases were in the agent's dev set.",
-    "blind_059":"Fake owner instruction for an illegal lockout: 'enquiry' in also_mentions has no clear basis; arguably also_mentions should be empty, and 'other' (impersonation) is a defensible primary."
+    "blind_059": "Fake owner instruction for an illegal lockout: 'enquiry' in also_mentions has no clear basis; arguably also_mentions should be empty, and 'other' (impersonation) is a defensible primary."
+  },
+  "kept_after_review": {
+    "blind_022": "Kept as maintenance/emergency/escalated; blind_088 was aligned to it instead."
   }
 }

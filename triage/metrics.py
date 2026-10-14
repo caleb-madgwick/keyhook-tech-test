@@ -117,6 +117,7 @@ def reliability_metrics(rows: list[dict]) -> dict:
         "mean_cost_usd": sum(cost) / len(cost) if cost else 0.0,
         "total_cost_usd": sum(cost),
         "mean_input_tokens": sum(m["input_tokens"] for m in metas) / len(metas) if metas else 0,
+        "mean_cached_input_tokens": sum(m.get("cached_input_tokens", 0) for m in metas) / len(metas) if metas else 0,
         "mean_output_tokens": sum(m["output_tokens"] for m in metas) / len(metas) if metas else 0,
     }
 

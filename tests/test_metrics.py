@@ -121,3 +121,11 @@ def test_message_pass_and_breakdown():
     assert b["g1"]["pass_rate"] == pytest.approx(0.5) and b["g1"]["under_triage"] == 1
     assert b["g2"]["pass_rate"] == 1.0
     assert failing_tags(rows) == [("x", 1, 2), ("y", 1, 2)]
+
+
+def test_baseline_keywords_are_whole_words():
+    from triage.baseline import classify
+
+    assert classify({"subject": "news", "body": "I got fired today, rent will be late"})["urgency"] != "emergency"
+    assert classify({"subject": "help", "body": "There is a fire in the kitchen"})["urgency"] == "emergency"
+    assert classify({"subject": "ceiling", "body": "the ceiling collapsed"})["urgency"] == "emergency"

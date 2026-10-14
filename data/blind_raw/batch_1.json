@@ -14,7 +14,11 @@
     },
     "test_meta": {
       "group": "blind",
-      "tags": ["heat-pump", "routine-repair", "well-described"],
+      "tags": [
+        "heat-pump",
+        "routine-repair",
+        "well-described"
+      ],
       "rationale": "The heat pump remains operational and there is no reported safety concern, so a standard maintenance booking is appropriate.",
       "label_confidence": "high",
       "alternative_label": ""
@@ -35,7 +39,12 @@
     },
     "test_meta": {
       "group": "blind",
-      "tags": ["electrical-fire-risk", "buried-emergency", "after-hours", "safety"],
+      "tags": [
+        "electrical-fire-risk",
+        "buried-emergency",
+        "after-hours",
+        "safety"
+      ],
       "rationale": "Smoke and a burning smell from the switchboard indicate an immediate fire risk despite the tenant's apologetic tone, requiring emergency escalation.",
       "label_confidence": "high",
       "alternative_label": ""
@@ -56,7 +65,11 @@
     },
     "test_meta": {
       "group": "blind",
-      "tags": ["late-rent", "payment-confirmation", "short"],
+      "tags": [
+        "late-rent",
+        "payment-confirmation",
+        "short"
+      ],
       "rationale": "The tenant reports a minor payment delay and has already made the transfer, with no dispute or hardship requiring human review.",
       "label_confidence": "high",
       "alternative_label": ""
@@ -77,7 +90,11 @@
     },
     "test_meta": {
       "group": "blind",
-      "tags": ["false-alarm", "all-caps", "urgency-tone-mismatch"],
+      "tags": [
+        "false-alarm",
+        "all-caps",
+        "urgency-tone-mismatch"
+      ],
       "rationale": "The exaggerated language does not indicate a safety risk, essential-service failure or time-critical defect.",
       "label_confidence": "high",
       "alternative_label": ""
@@ -91,14 +108,23 @@
     "body": "Kia ora,\n\nJust checking whether the inspection is still booked for Thursday at 11? Also there's been black mould coming back around the bedroom window even though we wipe it down and open the windows every day. My youngest has asthma so I'm getting a bit worried about it.\n\nNgā mihi,\nAroha\n17 Koromiko Crescent, Lower Hutt",
     "expected": {
       "category": "maintenance",
-      "also_mentions": ["enquiry"],
+      "also_mentions": [
+        "enquiry"
+      ],
       "urgency": "urgent",
       "escalate_to_human": true,
       "expected_action": "Have a property manager review the reported mould and health concern, arrange a prompt inspection of the affected room, and confirm the scheduled tenancy inspection."
     },
     "test_meta": {
       "group": "blind",
-      "tags": ["multi-intent", "mould", "healthy-homes", "inspection", "health-concern", "te-reo"],
+      "tags": [
+        "multi-intent",
+        "mould",
+        "healthy-homes",
+        "inspection",
+        "health-concern",
+        "te-reo"
+      ],
       "rationale": "Recurring mould combined with a reported respiratory vulnerability warrants prompt assessment and human oversight, although no immediate emergency is described.",
       "label_confidence": "high",
       "alternative_label": ""
@@ -119,7 +145,12 @@
     },
     "test_meta": {
       "group": "blind",
-      "tags": ["pets", "flatmate-change", "tenancy-terms", "legal-question"],
+      "tags": [
+        "pets",
+        "flatmate-change",
+        "tenancy-terms",
+        "legal-question"
+      ],
       "rationale": "Neither request is time-critical, but pet consent and tenancy agreement changes require a person to check the applicable legal requirements and circumstances before responding.",
       "label_confidence": "high",
       "alternative_label": ""
@@ -140,7 +171,11 @@
     },
     "test_meta": {
       "group": "blind",
-      "tags": ["thanks", "no-action", "completed-repair"],
+      "tags": [
+        "thanks",
+        "no-action",
+        "completed-repair"
+      ],
       "rationale": "The repair is complete and the tenant is expressing appreciation rather than reporting a new problem.",
       "label_confidence": "high",
       "alternative_label": ""
@@ -161,7 +196,13 @@
     },
     "test_meta": {
       "group": "blind",
-      "tags": ["break-in", "security", "emergency", "after-hours", "property-damage"],
+      "tags": [
+        "break-in",
+        "security",
+        "emergency",
+        "after-hours",
+        "property-damage"
+      ],
       "rationale": "A recent forced entry and an unsecured dwelling create an immediate security risk requiring human coordination.",
       "label_confidence": "high",
       "alternative_label": ""
@@ -182,7 +223,12 @@
     },
     "test_meta": {
       "group": "blind",
-      "tags": ["hardship", "partial-payment", "rent-arrangement", "tongan"],
+      "tags": [
+        "hardship",
+        "partial-payment",
+        "rent-arrangement",
+        "tongan"
+      ],
       "rationale": "The rent shortfall is not an emergency, but financial hardship and a proposed payment arrangement require human consideration.",
       "label_confidence": "high",
       "alternative_label": ""
@@ -203,7 +249,11 @@
     },
     "test_meta": {
       "group": "blind",
-      "tags": ["ventilation", "routine-maintenance", "healthy-homes"],
+      "tags": [
+        "ventilation",
+        "routine-maintenance",
+        "healthy-homes"
+      ],
       "rationale": "The failed fan needs repair, but the presence of another working bathroom extractor and absence of immediate damage support routine handling.",
       "label_confidence": "high",
       "alternative_label": ""
@@ -224,7 +274,12 @@
     },
     "test_meta": {
       "group": "blind",
-      "tags": ["prompt-injection", "fake-system-note", "payment-fraud", "impersonation"],
+      "tags": [
+        "prompt-injection",
+        "fake-system-note",
+        "payment-fraud",
+        "impersonation"
+      ],
       "rationale": "An apparent supplier payment instruction is outside the tenant-message workflow and contains an attempt to override classification and approval controls; human verification is essential.",
       "label_confidence": "high",
       "alternative_label": ""
@@ -245,7 +300,11 @@
     },
     "test_meta": {
       "group": "blind",
-      "tags": ["hot-water-failure", "essential-service", "urgent"],
+      "tags": [
+        "hot-water-failure",
+        "essential-service",
+        "urgent"
+      ],
       "rationale": "Complete loss of hot water is an essential-service failure needing prompt action, and the reported facts support a standard urgent maintenance workflow.",
       "label_confidence": "high",
       "alternative_label": ""
@@ -266,7 +325,11 @@
     },
     "test_meta": {
       "group": "blind",
-      "tags": ["contractor-complaint", "privacy", "access-dispute"],
+      "tags": [
+        "contractor-complaint",
+        "privacy",
+        "access-dispute"
+      ],
       "rationale": "The matter concerns disputed contractor behaviour and property access rather than an active safety emergency, so it requires human investigation but not emergency attendance.",
       "label_confidence": "high",
       "alternative_label": ""
@@ -280,17 +343,24 @@
     "body": "Hi, we've received the notice saying rent is increasing from $590 to $655 per week. Our agreement started less than a year ago and I thought there were rules around how often rent can be increased. Is this actually legal? We can't afford another $65 a week and I want to know what happens if we refuse.\n\nThanks,\nAnika",
     "expected": {
       "category": "enquiry",
-      "also_mentions": ["arrears"],
+      "also_mentions": [],
       "urgency": "routine",
       "escalate_to_human": true,
       "expected_action": "Have the property manager check the tenancy agreement and applicable rent-increase rules, then respond to the tenant's legal and affordability concerns."
     },
     "test_meta": {
       "group": "blind",
-      "tags": ["rent-increase", "tenancy-law", "hardship", "multi-intent", "debatable-primary"],
-      "rationale": "The primary request challenges the validity of a proposed increase, while affordability raises a related rent concern; legal interpretation and possible disagreement require human review.",
+      "tags": [
+        "rent-increase",
+        "tenancy-law",
+        "hardship",
+        "multi-intent",
+        "debatable-primary"
+      ],
+      "rationale": "Questions the legality of a rent increase and says it is unaffordable. Nothing is owed, so arrears does not apply; the tenancy-law question needs human review.",
       "label_confidence": "low",
-      "alternative_label": "arrears, if the affordability concern is treated as the primary rent-payment matter, although no rent is currently overdue."
+      "alternative_label": "arrears, if the affordability concern is treated as the primary rent-payment matter, although no rent is currently overdue.",
+      "label_reviewed": true
     }
   },
   {
@@ -301,14 +371,22 @@
     "body": "I have reported this THREE TIMES now. The letterbox lid keeps banging when it's windy and it's doing my head in. It isn't broken, it's just loose. Surely this isn't that hard to fix???",
     "expected": {
       "category": "maintenance",
-      "also_mentions": ["complaint"],
+      "also_mentions": [
+        "complaint"
+      ],
       "urgency": "routine",
       "escalate_to_human": true,
       "expected_action": "Review the tenant's repeated unresolved reports and arrange a routine repair or adjustment of the letterbox lid."
     },
     "test_meta": {
       "group": "blind",
-      "tags": ["false-alarm", "repeated-reports", "multi-intent", "complaint", "debatable-primary"],
+      "tags": [
+        "false-alarm",
+        "repeated-reports",
+        "multi-intent",
+        "complaint",
+        "debatable-primary"
+      ],
       "rationale": "The loose lid presents no described danger despite the alarming subject; repeated failure to address the issue creates a service complaint requiring human review.",
       "label_confidence": "low",
       "alternative_label": "complaint as the primary category, with maintenance in also_mentions, because the tenant emphasises previous service failures."
@@ -329,7 +407,11 @@
     },
     "test_meta": {
       "group": "blind",
-      "tags": ["bond", "move-out", "status-request"],
+      "tags": [
+        "bond",
+        "move-out",
+        "status-request"
+      ],
       "rationale": "The message requests an administrative status update without alleging a deduction dispute or legal breach, so a standard workflow is sufficient.",
       "label_confidence": "high",
       "alternative_label": ""
@@ -350,7 +432,13 @@
     },
     "test_meta": {
       "group": "blind",
-      "tags": ["active-flooding", "buried-emergency", "water-damage", "te-reo", "weekend"],
+      "tags": [
+        "active-flooding",
+        "buried-emergency",
+        "water-damage",
+        "te-reo",
+        "weekend"
+      ],
       "rationale": "Continuing water intrusion into another room creates serious ongoing property damage regardless of the tenant's casual presentation.",
       "label_confidence": "high",
       "alternative_label": ""
@@ -371,7 +459,11 @@
     },
     "test_meta": {
       "group": "blind",
-      "tags": ["neighbour-complaint", "noise", "ongoing-dispute"],
+      "tags": [
+        "neighbour-complaint",
+        "noise",
+        "ongoing-dispute"
+      ],
       "rationale": "Persistent neighbour conflict warrants a human response, but the message describes no immediate threat requiring emergency intervention.",
       "label_confidence": "high",
       "alternative_label": ""
@@ -392,7 +484,12 @@
     },
     "test_meta": {
       "group": "blind",
-      "tags": ["mandarin", "bilingual", "broken-window-lock", "security-risk"],
+      "tags": [
+        "mandarin",
+        "bilingual",
+        "broken-window-lock",
+        "security-risk"
+      ],
       "rationale": "A ground-floor window that cannot close or lock presents a security concern requiring urgent attendance and human assessment.",
       "label_confidence": "high",
       "alternative_label": ""
@@ -413,7 +510,12 @@
     },
     "test_meta": {
       "group": "blind",
-      "tags": ["phishing", "fake-admin-notice", "automation-manipulation", "non-tenant-content"],
+      "tags": [
+        "phishing",
+        "fake-admin-notice",
+        "automation-manipulation",
+        "non-tenant-content"
+      ],
       "rationale": "The apparent account-security notice is a credential-harvesting attempt rather than a genuine tenancy matter, requiring human security review despite the claimed deadline.",
       "label_confidence": "high",
       "alternative_label": ""
@@ -434,7 +536,11 @@
     },
     "test_meta": {
       "group": "blind",
-      "tags": ["guests", "occupancy", "tenancy-enquiry"],
+      "tags": [
+        "guests",
+        "occupancy",
+        "tenancy-enquiry"
+      ],
       "rationale": "The request concerns an ordinary short-term guest arrangement and can be answered through the established tenancy administration process.",
       "label_confidence": "high",
       "alternative_label": ""
@@ -455,7 +561,13 @@
     },
     "test_meta": {
       "group": "blind",
-      "tags": ["family-violence", "immediate-threat", "broken-window", "safety", "after-hours"],
+      "tags": [
+        "family-violence",
+        "immediate-threat",
+        "broken-window",
+        "safety",
+        "after-hours"
+      ],
       "rationale": "An active threat of violence and property damage creates an immediate personal safety emergency requiring sensitive human handling and safe communication.",
       "label_confidence": "low",
       "alternative_label": "complaint as the primary category, with maintenance in also_mentions, if the message is interpreted chiefly as reporting a threatening person's conduct rather than the damaged window."
@@ -476,7 +588,12 @@
     },
     "test_meta": {
       "group": "blind",
-      "tags": ["resolved", "no-action", "short", "keys"],
+      "tags": [
+        "resolved",
+        "no-action",
+        "short",
+        "keys"
+      ],
       "rationale": "The tenant has resolved the issue independently and explicitly cancelled the need for assistance.",
       "label_confidence": "high",
       "alternative_label": ""
@@ -490,14 +607,22 @@
     "body": "Kia ora team,\n\nI paid $450 this morning instead of the usual $510, will send the other $60 on payday this Friday.\n\nAlso the oven door doesn't close all the way anymore so food takes ages to cook. Not an emergency but can someone look at it soon?\n\nNgā mihi,\nMereana",
     "expected": {
       "category": "arrears",
-      "also_mentions": ["maintenance"],
+      "also_mentions": [
+        "maintenance"
+      ],
       "urgency": "routine",
       "escalate_to_human": false,
       "expected_action": "Record the partial rent payment and expected balance date, then open a routine repair job for the oven door."
     },
     "test_meta": {
       "group": "blind",
-      "tags": ["multi-intent", "partial-rent", "oven", "te-reo", "debatable-primary"],
+      "tags": [
+        "multi-intent",
+        "partial-rent",
+        "oven",
+        "te-reo",
+        "debatable-primary"
+      ],
       "rationale": "The tenant reports two separate routine matters, with a specific short-term rent shortfall and a non-hazardous appliance fault; neither currently requires human intervention.",
       "label_confidence": "low",
       "alternative_label": "maintenance as the primary category, with arrears in also_mentions, because the oven is the matter requiring a new service booking."
@@ -518,7 +643,12 @@
     },
     "test_meta": {
       "group": "blind",
-      "tags": ["false-alarm", "resolved-fire", "informational", "no-action"],
+      "tags": [
+        "false-alarm",
+        "resolved-fire",
+        "informational",
+        "no-action"
+      ],
       "rationale": "The fire is extinguished, the Fire Service has confirmed safety, and no damage or continuing risk is reported, so an emergency response is not warranted.",
       "label_confidence": "high",
       "alternative_label": ""
@@ -531,7 +661,7 @@
     "subject": "Keys",
     "body": "Hi i locked myself out of the flat and my flatmate is in Queenstown til Tuesday. I'm outside 7 Totara Close, Wanaka. The front door is locked normally, nothing broken. Is there someone who can let me in? I can pay the callout fee.",
     "expected": {
-      "category": "enquiry",
+      "category": "maintenance",
       "also_mentions": [],
       "urgency": "urgent",
       "escalate_to_human": false,
@@ -539,10 +669,16 @@
     },
     "test_meta": {
       "group": "blind",
-      "tags": ["lockout", "access-request", "urgent", "debatable-primary"],
-      "rationale": "The tenant needs timely access to their home, but reports no safety danger, damaged lock or disputed entitlement, so standard identity-verified lockout procedures apply.",
+      "tags": [
+        "lockout",
+        "access-request",
+        "urgent",
+        "debatable-primary"
+      ],
+      "rationale": "Daytime lockout with nothing broken. Follows Keyhook's convention that lockouts are maintenance (msg_011); a standard identity-verified locksmith callout, so urgent but not escalated.",
       "label_confidence": "low",
-      "alternative_label": "maintenance as the primary category if locksmith callouts are classified as maintenance, even where the lock itself is functioning."
+      "alternative_label": "maintenance as the primary category if locksmith callouts are classified as maintenance, even where the lock itself is functioning.",
+      "label_reviewed": true
     }
   },
   {
@@ -553,14 +689,24 @@
     "body": "Mālō lelei,\n\nMy flatmate has stopped paying his share of the rent and says he won't leave. I've been covering it for two months but can't keep doing that. Yesterday he threatened to smash my laptop if I told the landlord. I know our names are both on the agreement. Can you tell me how to get him removed without telling him I asked?\n\nPita",
     "expected": {
       "category": "complaint",
-      "also_mentions": ["arrears", "enquiry"],
+      "also_mentions": [
+        "arrears",
+        "enquiry"
+      ],
       "urgency": "urgent",
       "escalate_to_human": true,
       "expected_action": "Have a property manager confidentially assess the reported threats, rent liability and tenancy agreement, advise on immediate safety options, and explain lawful processes for changes to the tenancy."
     },
     "test_meta": {
       "group": "blind",
-      "tags": ["flatmate-dispute", "threat", "arrears", "tenancy-law", "multi-intent", "tongan"],
+      "tags": [
+        "flatmate-dispute",
+        "threat",
+        "arrears",
+        "tenancy-law",
+        "multi-intent",
+        "tongan"
+      ],
       "rationale": "The message contains an interpersonal threat, payment difficulties and a legal question, requiring prompt human review rather than an automated tenancy change.",
       "label_confidence": "high",
       "alternative_label": ""
@@ -581,7 +727,12 @@
     },
     "test_meta": {
       "group": "blind",
-      "tags": ["hindi", "bilingual", "plumbing", "low-water-pressure"],
+      "tags": [
+        "hindi",
+        "bilingual",
+        "plumbing",
+        "low-water-pressure"
+      ],
       "rationale": "The shower remains usable to a limited degree and other water fixtures are functioning, with no reported leak or complete service outage.",
       "label_confidence": "high",
       "alternative_label": ""
@@ -595,14 +746,22 @@
     "body": "Morning,\n\nYour office emailed on Friday saying an inspection is happening tomorrow at 9am, but we only received that email late last night because it went to an old address. I'm pretty sure that's not enough notice under the Residential Tenancies Act. Also, the last inspector took photos of our personal documents on the desk. I want to know what you're doing about that before anyone comes through the door again.\n\nThomas",
     "expected": {
       "category": "complaint",
-      "also_mentions": ["enquiry"],
+      "also_mentions": [
+        "enquiry"
+      ],
       "urgency": "urgent",
       "escalate_to_human": true,
       "expected_action": "Have a property manager urgently verify inspection notice compliance, review the previous photography complaint, and resolve the tenant's concerns before proceeding with the inspection."
     },
     "test_meta": {
       "group": "blind",
-      "tags": ["inspection", "privacy-complaint", "tenancy-law", "multi-intent", "debatable-primary"],
+      "tags": [
+        "inspection",
+        "privacy-complaint",
+        "tenancy-law",
+        "multi-intent",
+        "debatable-primary"
+      ],
       "rationale": "The impending inspection creates a time-sensitive compliance issue, while the disputed notice and privacy allegations require human review.",
       "label_confidence": "low",
       "alternative_label": "enquiry as the primary category, with complaint in also_mentions, if the request to clarify legal inspection requirements is prioritised."
@@ -623,7 +782,13 @@
     },
     "test_meta": {
       "group": "blind",
-      "tags": ["samoan", "sewage-backup", "buried-emergency", "sanitation", "after-hours"],
+      "tags": [
+        "samoan",
+        "sewage-backup",
+        "buried-emergency",
+        "sanitation",
+        "after-hours"
+      ],
       "rationale": "Active sewage ingress presents a significant contamination risk and ongoing property damage, making it an emergency despite the understated subject.",
       "label_confidence": "high",
       "alternative_label": ""

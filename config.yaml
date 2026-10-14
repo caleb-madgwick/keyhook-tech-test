@@ -5,7 +5,9 @@ agent:
   model: anthropic/claude-haiku-5.5
   # OpenRouter tries these in order if the primary model errors or is unavailable.
   fallback_models: []
-  temperature: 0
+  # null = not sent. Haiku 5.5, Sonnet 5.5 and GPT-6 reject it on OpenRouter (no provider matches
+  # with require_parameters), so every model runs at its own default sampling.
+  temperature: null
   # Generous: a truncated answer becomes a fail-safe. Reasoning models count thinking tokens here too.
   max_tokens: 3000
   timeout_s: 60
@@ -16,6 +18,10 @@ agent:
   prompt_version: v5
   # Passed straight through to OpenRouter as the `reasoning` parameter; null = provider default.
   reasoning: null
+  # Cache the ~3.4k-token system prompt (5-minute TTL). A hit costs 0.1x input, a miss 1.25x, so it
+  # pays off once more than ~1 in 5 messages arrives within 5 minutes of the previous one
+  # (always true in eval runs). Turn off for a very quiet inbox.
+  prompt_cache: true
   # OpenRouter provider routing. require_parameters ensures we only hit providers that
   # honour structured outputs; data_collection: deny avoids providers that train on prompts
   # (tenant messages contain personal information).
@@ -33,7 +39,7 @@ judge:
   # Scores required_action against the labelled expected_action. Deliberately a different
   # model family from the agent to reduce self-preference bias.
   model: openai/gpt-6-sol
-  temperature: 0
+  temperature: null  # gpt-6-sol rejects temperature on OpenRouter
   max_tokens: 2000
   reasoning: null
 

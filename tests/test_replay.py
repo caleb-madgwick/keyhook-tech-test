@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+from pathlib import Path
 
 import pytest
 
@@ -97,3 +98,41 @@ def test_judge_replay_round_trip(setup, tmp_path):
     cfg.judge.backend, cfg.judge.replay_file = "replay", str(jreplay)
     s = ev.run_eval(cfg, str(ds), repeats=1, use_judge=True)
     assert s["metrics"]["judge"]["mean_score"] == 1.5 and s["spent_this_run"]["judge"] == 0
+
+
+def test_replay_estimate_counts_the_structured_output_schema(setup):
+    from triage.config import ModelSettings
+    from triage.replay import input_key
+
+    _, replay = setup
+    rec = json.loads(Path(replay).read_text().splitlines()[0])
+    settings = ModelSettings(model="r", backend="replay", replay_file=str(replay))
+    c = ReplayClient(settings)
+    msgs = [{"role": "system", "content": "s"}, {"role": "user", "content": "u"}]
+    c.outputs = {input_key("s", "u"): rec}
+    plain = asyncio.run(c.chat(settings, msgs))
+    with_schema = asyncio.run(c.chat(settings, msgs, json_schema={"type": "object", "properties": {"a": {"type": "string"}}}))
+    assert with_schema.input_tokens > plain.input_tokens
+
+
+def test_import_refuses_conflicting_duplicate_answers(setup, tmp_path):
+    ds, replay = setup
+    exp = tmp_path / "exp"
+    (exp / "answers_1.jsonl").write_text(json.dumps({"id": "a", "output": answer("urgent")}) + "\n")
+    with pytest.raises(SystemExit):
+        off.import_answers(exp, tmp_path / "r2.jsonl", "test")
+
+
+def test_blind_reports_never_contain_message_details(tmp_path, monkeypatch):
+    for mod in (ev, rep, off):
+        monkeypatch.setattr(mod, "ROOT", tmp_path)
+    ds = tmp_path / "my_blind_set.json"
+    ds.write_text(json.dumps({"messages": MSGS}))
+    off.export(str(ds), tmp_path / "e", chunk=10, split="all")
+    (tmp_path / "e" / "answers_0.jsonl").write_text(
+        "\n".join(json.dumps({"id": i, "output": answer("routine")}) for i in ("a", "b")) + "\n")  # b is wrong
+    r = tmp_path / "r.jsonl"
+    off.import_answers(tmp_path / "e", r, "t")
+    s = ev.run_eval(load_config(replay=str(r)), str(ds), 1, use_judge=False)
+    text = (tmp_path / s["report"]).read_text()
+    assert "withheld" in text and "gas smell in the kitchen" not in text

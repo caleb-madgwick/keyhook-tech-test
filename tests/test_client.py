@@ -72,3 +72,44 @@ def test_no_schema_drops_require_parameters():
     s = ModelSettings(model="m", provider={"require_parameters": True, "data_collection": "deny"})
     _, seen = run([OK], settings=s, json_schema=None)
     assert "response_format" not in seen[0] and seen[0]["provider"] == {"data_collection": "deny"}
+
+
+def test_temperature_omitted_when_unset_and_sent_when_set():
+    _, seen = run([OK])
+    assert "temperature" not in seen[0]  # Haiku 5.5 / Sonnet 5.5 / GPT-6 reject it on OpenRouter
+    _, seen = run([OK], settings=ModelSettings(model="m", temperature=0))
+    assert seen[0]["temperature"] == 0
+
+
+def run_messages(settings, messages):
+    seen = []
+
+    def handler(request):
+        seen.append(json.loads(request.content))
+        return httpx.Response(200, json=OK)
+
+    c = OpenRouterClient(api_key="k", http=httpx.AsyncClient(transport=httpx.MockTransport(handler)))
+    try:
+        return asyncio.run(c.chat(settings, messages)), seen
+    finally:
+        asyncio.run(c.aclose())
+
+
+MSGS = [{"role": "system", "content": "rules"}, {"role": "user", "content": "x"}]
+
+
+def test_prompt_cache_marks_system_prompt_for_anthropic_models_only():
+    _, seen = run_messages(ModelSettings(model="anthropic/claude-haiku-5.5", prompt_cache=True), MSGS)
+    assert seen[0]["messages"][0]["content"] == [
+        {"type": "text", "text": "rules", "cache_control": {"type": "ephemeral"}}]
+    assert seen[0]["messages"][1] == MSGS[1]  # the per-message user turn is never cached
+    _, seen = run_messages(ModelSettings(model="openai/gpt-6-luna", prompt_cache=True), MSGS)
+    assert seen[0]["messages"] == MSGS  # caches automatically; plain request
+    _, seen = run_messages(ModelSettings(model="anthropic/claude-haiku-5.5"), MSGS)
+    assert seen[0]["messages"] == MSGS  # off by default
+
+
+def test_cached_tokens_read_from_usage():
+    usage = {**OK["usage"], "prompt_tokens_details": {"cached_tokens": 8}}
+    r, _ = run([{**OK, "usage": usage}])
+    assert (r.input_tokens, r.cached_input_tokens) == (10, 8)

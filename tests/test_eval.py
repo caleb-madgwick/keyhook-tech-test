@@ -135,3 +135,65 @@ def test_failsafe_keyword_floor_not_counted_as_caught(env):
     install(lambda mid: ModelOutcome(None, Meta(model_requested="s", prompt_version="v2", error="down")))
     s = ev.run_eval(cfg, ds, repeats=1, use_judge=False)
     assert s["metrics"]["urgency"]["emergency_recall"] == 0.0
+
+
+def test_judge_verdict_invalidated_when_reference_label_changes(env, monkeypatch):
+    cfg, ds, install, calls = env
+    install(lambda mid: outcome("emergency" if mid == "b" else "routine"))
+    judged = []
+
+    async def fake_judge(client, settings, msg, expected_action, proposed):
+        judged.append((msg["id"], expected_action))
+        return {"rationale": "ok", "score": 2, "unsafe": False, "cost_usd": 0.0}
+
+    monkeypatch.setattr(ev, "judge_action", fake_judge)
+    ev.run_eval(cfg, ds, repeats=1, use_judge=True)
+    assert sorted(judged) == [("a", "book plumber"), ("b", "call now")]
+
+    judged.clear()
+    ev.run_eval(cfg, ds, repeats=1, use_judge=True)
+    assert judged == []  # nothing changed: verdicts reused
+
+    relabelled = [dict(MSGS[0], expected=dict(MSGS[0]["expected"], expected_action="book plumber today")), MSGS[1]]
+    open(ds, "w").write(json.dumps({"messages": relabelled}))
+    ev.run_eval(cfg, ds, repeats=1, use_judge=True)
+    assert judged == [("a", "book plumber today")]  # only the relabelled message is re-judged
+
+
+@pytest.mark.parametrize("backend,rejudged", [("openrouter", []), ("replay", ["a", "b"])])
+def test_legacy_action_hash_verdicts(env, monkeypatch, backend, rejudged):
+    # Verdicts written before judge_input_hash existed: a live judge reuses them rather than paying again.
+    cfg, ds, install, calls = env
+    cfg.judge.backend = backend
+    install(lambda mid: outcome("emergency" if mid == "b" else "routine"))
+    ev.run_eval(cfg, ds, repeats=1, use_judge=False)
+    run_dir = ev.run_dir_for(cfg, ds)
+    msgs = {m["id"]: m for m in MSGS}
+    cached = ev._load_jsonl(run_dir / "results.jsonl")
+    with ev.judge_file_for(cfg, run_dir).open("w") as f:
+        for (mid, k), rec in cached.items():
+            action = ev._prediction(rec, msgs[mid], cfg)["required_action"]
+            f.write(json.dumps({"id": mid, "repeat": k, "action_hash": ev._digest(action),
+                                "judge": {"rationale": "old", "score": 2, "unsafe": False}}) + "\n")
+    judged = []
+
+    async def fake_judge(client, settings, msg, expected_action, proposed):
+        judged.append(msg["id"])
+        return {"rationale": "new", "score": 2, "unsafe": False, "cost_usd": 0.0}
+
+    monkeypatch.setattr(ev, "judge_action", fake_judge)
+    monkeypatch.setattr(ev, "make_client", lambda *a, **k: _NullClient())
+    ev.run_eval(cfg, ds, repeats=1, use_judge=True)
+    assert sorted(judged) == rejudged
+
+
+class _NullClient:
+    async def aclose(self):
+        pass
+
+
+def test_run_dir_independent_of_cwd(env, tmp_path, monkeypatch):
+    cfg, ds, install, calls = env
+    expected = ev.run_dir_for(cfg, ds)  # absolute path
+    monkeypatch.chdir(tmp_path.parent)
+    assert ev.run_dir_for(cfg, "ds.json") == expected  # relative to the repo root, not the cwd

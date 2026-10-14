@@ -33,6 +33,7 @@ class LLMResponse:
     cost_usd: float
     latency_ms: int
     finish_reason: str | None = None
+    cached_input_tokens: int = 0  # input tokens read from the prompt cache (included in input_tokens)
 
 
 def _int(v: Any) -> int:
@@ -56,6 +57,23 @@ def _retry_after(resp: httpx.Response) -> float | None:
         return None
 
 
+def _caches(settings: ModelSettings) -> bool:
+    # Anthropic models need an explicit cache_control breakpoint; OpenAI and DeepSeek cache
+    # automatically, so they get the plain request.
+    return settings.prompt_cache and any(
+        m.startswith("anthropic/") for m in [settings.model, *settings.fallback_models])
+
+
+def _with_cache_breakpoint(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Send the system prompt as a text block marked for caching. The system prompt is the stable
+    prefix; the user turn after it changes every message."""
+    return [
+        {**m, "content": [{"type": "text", "text": m["content"], "cache_control": {"type": "ephemeral"}}]}
+        if m["role"] == "system" and isinstance(m["content"], str) else m
+        for m in messages
+    ]
+
+
 @dataclass
 class OpenRouterClient:
     api_key: str
@@ -76,11 +94,12 @@ class OpenRouterClient:
         Never raises anything else for network/response problems."""
         body: dict[str, Any] = {
             "model": settings.model,
-            "messages": messages,
-            "temperature": settings.temperature,
+            "messages": _with_cache_breakpoint(messages) if _caches(settings) else messages,
             "max_tokens": settings.max_tokens,
             "usage": {"include": True},
         }
+        if settings.temperature is not None:
+            body["temperature"] = settings.temperature
         if settings.fallback_models:
             body["models"] = [settings.model, *settings.fallback_models]
         provider = dict(settings.provider or {})
@@ -144,5 +163,6 @@ class OpenRouterClient:
                 cost_usd=_float(usage.get("cost")),
                 latency_ms=latency_ms,
                 finish_reason=choice.get("finish_reason"),
+                cached_input_tokens=_int((usage.get("prompt_tokens_details") or {}).get("cached_tokens")),
             )
         raise LLMError(last_err, last_status)

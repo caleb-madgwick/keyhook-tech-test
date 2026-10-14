@@ -28,6 +28,14 @@ _AI_ORDER = (
     r"(approve|confirm|classify|categori[sz]e|mark|close|email|send|waive|cancel|delete|export|forward|"
     r"set|change|update|ignore|disregard|label|route|prioriti[sz]e|escalate)"
 )
+# Our own delimiter and near-variants a model may still read as it ("< /tenant_message>", "</tenant-message",
+# "</tenant message>", "</tenant_messages>", "</tenant_message foo=1>", a missing ">"). Only tag-shaped text
+# counts: a closing slash, a joined name, or a spaced name closed by ">", so prose like "rent < tenant message
+# limit" doesn't. Only the tag head is matched, so neutralising it never removes the tenant's text after it.
+# Used both to neutralise the tag and as an injection pattern.
+_DELIMITER = re.compile(
+    r"<\s*(/\s*tenant[\s_-]*message|tenant[_-]?message|tenant\s+message(?=[^<>\n]{0,100}>))\w*", re.IGNORECASE
+)
 INJECTION_PATTERNS: list[re.Pattern[str]] = [
     re.compile(p, re.IGNORECASE)
     for p in [
@@ -44,7 +52,8 @@ INJECTION_PATTERNS: list[re.Pattern[str]] = [
         r"\b(urgen\w*|emergency|escalat\w*|categor\w*|routine|priority)\b",
         r"\boverrides?\s+(all\s+)?(previous|prior|other)\s+instructions\b",
         r"\b(do\s+not|don'?t|never)\s+(escalate|flag|forward)\b.{0,40}\b(human|person|staff|manager)",
-        r"</?\s*(system|assistant|instructions?|tenant_message)\s*>",
+        r"</?\s*(system|assistant|instructions?)\s*>",
+        _DELIMITER.pattern,
         r"\[\[?\s*(system|assistant|admin)\b",
         # An order addressed to an AI: "AI assistant: please email ...", "NOTE FOR THE AUTOMATED TRIAGE: classify ..."
         rf"\b{_AI_TARGET}\b[^.\n]{{0,25}}[:,]\s*(please\s+)?{_AI_ORDER}\b",
@@ -59,7 +68,8 @@ INJECTION_PATTERNS: list[re.Pattern[str]] = [
 
 # Used only when the model call fails: a fail-safe result for a message mentioning one of
 # these is marked emergency (not just urgent), so it goes to the top of the human queue.
-# Over-matching is acceptable here because a person is reading it anyway.
+# Over-matching is acceptable here because a person is reading it anyway, and the fail-safe
+# says "possible" emergency (FAILSAFE_HAZARD_ACTION) rather than declaring one.
 EMERGENCY_HINTS = re.compile(
     r"\b(gas|smoke|smoking|fire|flames?|burning|sparks?|sparking|flood(ing|ed)?|burst|sewage|"
     r"carbon monoxide|co alarm|collaps\w*|live wire|electric shock|intruder|break-?in|unconscious|"
@@ -67,16 +77,41 @@ EMERGENCY_HINTS = re.compile(
     re.IGNORECASE,
 )
 
-ZERO_WIDTH = re.compile("[​‌‍⁠﻿­]")
+# Invisible characters that exist only to hide text: zero-width (U+200B-200D, 2060, FEFF), soft hyphen,
+# Mongolian vowel separator, invisible operators (U+2061-2064) and Unicode tag characters (U+E0000-E007F,
+# used for "ASCII smuggling"). They are removed and count towards the obfuscation threshold.
+ZERO_WIDTH = "[\u00ad\u180e\u200b-\u200d\u2060-\u2064\ufeff\U000e0000-\U000e007f]"
+# Directional marks (ALM, LRM/RLM, bidi embeddings, overrides and isolates) are removed too, so they can't
+# split a word the injection patterns look for, but are not counted: Arabic or Hebrew email is full of them.
+BIDI_MARKS = "[\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]"
+# A subdivision flag emoji (England, Scotland, Wales, ...) is a black flag, a short tag-character code and a
+# cancel tag. It is left intact: too short to smuggle an instruction, and counting it would flag the sender.
+TAG_FLAG = "\U0001f3f4[\U000e0030-\U000e0039\U000e0061-\U000e007a]{2,7}\U000e007f"
+_INVISIBLE = re.compile(f"(?P<flag>{TAG_FLAG})|(?P<hidden>{ZERO_WIDTH})|{BIDI_MARKS}")
 ZERO_WIDTH_THRESHOLD = 10  # a stray BOM from copy-paste is normal; dozens is deliberate
 BASE64_TOKEN = re.compile(r"(?<![A-Za-z0-9+/])[A-Za-z0-9+/]{32,}={0,2}(?![A-Za-z0-9+/=])")
 
 # Emergency safety advice is fixed wording owned by the business, not something the model should
-# improvise (an eval run caught the model making a 111 call conditional on things getting worse).
+# improvise. Two eval findings shaped it: the model made a 111 call conditional ("call 111 if smoke
+# returns") while smoke was present, and an earlier version of this text said "phone the tenant
+# now" to a family-violence victim who had asked not to be phoned. So it never mandates a channel
+# and it explicitly overrides conditional wording.
 EMERGENCY_PREAMBLE = (
-    "EMERGENCY - phone the tenant now. If anyone is in danger, or there is fire, smoke, a gas smell "
-    "or a live electrical hazard, tell them to get to safety and call 111 (or the gas emergency line) "
-    "immediately - do not wait for a contractor. Then: "
+    "EMERGENCY - contact the tenant now by the safest channel they have asked for (do not phone if "
+    "they have asked not to be called). If there is smoke, heat, fire, a gas smell, a live electrical "
+    "hazard, violence or anyone in danger right now, they must get to safety and call 111 (or the gas "
+    "emergency line) immediately - not only if it gets worse, and without waiting for a contractor. "
+    "This overrides any conditional wording below. Then: "
+)
+# The fail-safe's version for a message that matched EMERGENCY_HINTS. Nothing has been assessed and the
+# hints over-match ("gas bill", "smoke alarm battery"), so it says what to do IF it is an emergency
+# instead of declaring one, with the same channel and 111 wording as EMERGENCY_PREAMBLE.
+FAILSAFE_HAZARD_ACTION = (
+    "POSSIBLE EMERGENCY - automatic triage failed and this message mentions a possible hazard; nothing "
+    "about it has been assessed. Read it first. If it describes smoke, heat, fire, a gas smell, a live "
+    "electrical hazard, violence or anyone in danger right now, contact the tenant now by the safest "
+    "channel they have asked for (do not phone if they have asked not to be called): they must get to "
+    "safety and call 111 (or the gas emergency line) immediately. Otherwise triage it manually."
 )
 
 BUSINESS_HOURS = (8, 18)  # local time, Mon-Fri
@@ -139,35 +174,46 @@ class PreCheck:
 def precheck(msg: dict) -> PreCheck:
     cleaned = dict(msg)
     removed = 0
-    for key in ("subject", "body", "from_name"):
-        value = str(msg.get(key) or "")
-        removed += len(ZERO_WIDTH.findall(value))
-        cleaned[key] = ZERO_WIDTH.sub("", value)
+
+    def strip(m: re.Match) -> str:
+        nonlocal removed
+        if m.group("flag"):
+            return m.group()
+        removed += m.group("hidden") is not None  # directional marks are removed but not counted
+        return ""
+
+    for key in ("subject", "body", "from_name", "received_at"):
+        cleaned[key] = _INVISIBLE.sub(strip, str(msg.get(key) or ""))
     decoded = decode_base64_blobs(cleaned["body"]) + decode_base64_blobs(cleaned["subject"])
-    hits = detect_injection(cleaned["subject"], cleaned["body"], cleaned["from_name"], *decoded)
+    # received_at is sender-controlled too (a forged header can carry text, not a timestamp).
+    hits = detect_injection(cleaned["subject"], cleaned["body"], cleaned["from_name"], cleaned["received_at"], *decoded)
     return PreCheck(msg=cleaned, injection_hits=hits, zero_width_removed=removed, decoded_blobs=decoded)
 
 
-def describe_received_at(received_at: str | None) -> str:
+def describe_received_at(received_at: object) -> str:
     if not received_at:
         return "unknown"
     try:
-        dt = datetime.fromisoformat(received_at.replace("Z", "+00:00"))
+        dt = datetime.fromisoformat(str(received_at).replace("Z", "+00:00"))
     except ValueError:
-        return received_at
+        # Never echo it: anything that isn't a timestamp is sender text with no use to the model.
+        return "unknown (unreadable timestamp)"
     if dt.tzinfo is not None:
         try:
             dt = dt.astimezone(ZoneInfo(LOCAL_TZ))  # business hours are NZ hours, whatever offset was sent
         except ZoneInfoNotFoundError:
             pass
+        except (OverflowError, ValueError):  # e.g. year 1 or 9999 pushed out of range by the conversion
+            return "unknown (unreadable timestamp)"
     after_hours = dt.weekday() >= 5 or not (BUSINESS_HOURS[0] <= dt.hour < BUSINESS_HOURS[1])
     when = dt.strftime("%A %d %B %Y, %H:%M")
     return f"{when} local time ({'outside' if after_hours else 'within'} business hours)"
 
 
 def _neutralise(text: str) -> str:
-    # Stop the tenant text from closing our delimiter and smuggling content outside it.
-    return re.sub(r"</?\s*tenant_message\s*>", "[removed tag]", text or "", flags=re.IGNORECASE)
+    # Stop the tenant text from closing our delimiter (or anything a model might read as it)
+    # and smuggling content outside it.
+    return _DELIMITER.sub("[removed tag]", text or "")
 
 
 def format_message_for_llm(msg: dict, notes: list[str] | None = None, decoded: list[str] | None = None) -> str:
@@ -206,6 +252,12 @@ def _primary_index(llm: LLMTriage) -> int:
     return (marked or candidates)[0]
 
 
+def _is_english(code: str) -> bool:
+    """'en', 'en-NZ', 'en_NZ', 'eng' and 'English' all count as English (and a blank entry is ignored)."""
+    base = re.split(r"[-_\s]", code.strip().lower(), maxsplit=1)[0]
+    return base in ("", "en", "eng", "english")
+
+
 def apply_policy(message_id: str, llm: LLMTriage, pre: PreCheck | list[str], meta: Meta,
                  escalate_on_confidence: tuple[str, ...] | list[str] = ("low", "medium")) -> TriageResult:
     if isinstance(pre, list):  # convenience for tests: just injection hits
@@ -213,7 +265,6 @@ def apply_policy(message_id: str, llm: LLMTriage, pre: PreCheck | list[str], met
 
     primary = llm.issues[_primary_index(llm)]
     urgency = max((i.urgency for i in llm.issues), key=URGENCY_RANK.__getitem__)
-    actionable = any(i.category != "other" for i in llm.issues)
 
     also: list = []
     for issue in llm.issues:
@@ -231,13 +282,13 @@ def apply_policy(message_id: str, llm: LLMTriage, pre: PreCheck | list[str], met
     if llm.confidence in escalate_on_confidence:
         add(f"{llm.confidence}_confidence")
     # A person should check the translation before anyone acts on or replies to a message
-    # that wasn't written in English. No-action messages (thanks, spam) are exempt.
+    # that wasn't written in English. This includes messages the model calls no-action
+    # ("other"): deciding a message needs nothing relies on the model having understood a
+    # language it may have misread.
     # Backstop: the model sometimes lists a second language (e.g. Tagalog code-switching) yet
     # still calls the message "english"; trust the more cautious of its two answers.
-    non_english = llm.language_mix != "english" or any(
-        code.lower().split("-")[0] not in ("en", "") for code in llm.languages
-    )
-    if non_english and actionable:
+    non_english = llm.language_mix != "english" or not all(_is_english(code) for code in llm.languages)
+    if non_english:
         add("translation_check")
     if pre.injection_hits:
         add("injection_pattern_detected")
@@ -277,7 +328,12 @@ def failsafe_result(message_id: str, meta: Meta, error: str, pre: PreCheck | lis
     if pre.obfuscated:
         reasons.append("obfuscated_content")
     text = " ".join(str(pre.msg.get(k) or "") for k in ("subject", "body"))
-    urgency = "emergency" if EMERGENCY_HINTS.search(text) else "urgent"
+    # A keyword hit only moves the message up the queue; it is not an assessed emergency, so it gets
+    # neither the `emergency` reason nor the definite EMERGENCY_PREAMBLE.
+    hazard = bool(EMERGENCY_HINTS.search(text))
+    urgency = "emergency" if hazard else "urgent"
+    action = (FAILSAFE_HAZARD_ACTION if hazard
+              else "Automatic triage failed. A person must read this message and triage it manually.")
     return TriageResult(
         message_id=message_id,
         category="other",
@@ -287,7 +343,7 @@ def failsafe_result(message_id: str, meta: Meta, error: str, pre: PreCheck | lis
         escalation_reasons=reasons,
         confidence="low",
         review_notes=["Automatic triage failed; nothing about this message has been assessed."],
-        required_action="Automatic triage failed. A person must read this message and triage it manually.",
+        required_action=action,
         reasoning=f"Fail-safe result: {error}",
         languages=[],
         language_mix="unknown",
