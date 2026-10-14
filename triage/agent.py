@@ -2,6 +2,9 @@
 
 CLI:
     python -m triage.agent --input tenant_emails.json [--out results.jsonl] [--model X] [--ids msg_001,msg_014]
+    python -m triage.agent --smoke      # one real call to check the model, key and provider settings
+
+Exits 2 if more than half the messages fail safe (any, with --smoke): that means a broken setup.
 
 Input is either {"messages": [...]} or a bare list of messages with subject / body (id,
 from_name and received_at optional). Any `expected` field is ignored here.
@@ -103,6 +106,11 @@ async def call_model(pre: PreCheck, cfg: Config, client: OpenRouterClient) -> Mo
         if resp.finish_reason == "length":
             error = f"output truncated at max_tokens={settings.max_tokens}"
             break  # a corrective retry would hit the same limit
+        if resp.finish_reason == "content_filter":
+            # Seen live on messages carrying injection text: the provider cuts the answer off, and a
+            # corrective retry is filtered the same way. Fail closed straight away with a clear reason.
+            error = "the model provider's content filter stopped the answer; read the message and triage it manually"
+            break
         try:
             return ModelOutcome(LLMTriage.model_validate_json(_strip_fences(resp.content)), meta)
         except ValidationError as e:
@@ -154,22 +162,47 @@ async def triage_batch(messages: list[dict], cfg: Config) -> list[TriageResult]:
 
 
 def load_messages(path: str | Path) -> list[dict]:
+    """Read {"messages": [...]} or a bare list. A malformed file stops with a clear error; a message
+    with no subject or body is kept (it will be escalated) but warned about, since that usually
+    means the text is under a different key."""
     data = json.loads(Path(path).read_text())
-    messages = data["messages"] if isinstance(data, dict) else data
+    messages = data.get("messages") if isinstance(data, dict) else data
+    if not isinstance(messages, list) or not all(isinstance(m, dict) for m in messages):
+        raise SystemExit(f"{path}: expected {{\"messages\": [...]}} or a list of message objects.")
+    empty = []
     for n, m in enumerate(messages):
         m.setdefault("id", f"row_{n:04d}")  # ids are needed for caching and reporting
+        m["id"] = str(m["id"])
+        if not str(m.get("subject") or "").strip() and not str(m.get("body") or "").strip():
+            empty.append(f"{m['id']} (keys: {', '.join(sorted(m)) or 'none'})")
+    if empty:
+        print(f"WARNING: {len(empty)} message(s) have no subject or body and will be triaged as empty: "
+              + "; ".join(empty[:5]) + (" ..." if len(empty) > 5 else ""), file=sys.stderr)
     return messages
+
+
+# A failing run still writes every message as escalated, which looks fine at a glance. More than this
+# share of fail-safes almost always means a config, key or provider problem, not hard messages.
+FAILSAFE_ALARM_SHARE = 0.5
+SMOKE_INPUT, SMOKE_ID = ROOT / "tenant_emails.json", "msg_002"  # burst pipe: expected emergency + escalate
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Triage tenant messages.")
-    ap.add_argument("--input", required=True)
+    ap.add_argument("--input")
     ap.add_argument("--out", help="JSONL output path (default: stdout)")
     ap.add_argument("--config", default=ROOT / "config.yaml")
     ap.add_argument("--model", default=None, help="Override agent model")
     ap.add_argument("--ids", default=None, help="Comma-separated message ids to run")
     ap.add_argument("--replay", default=None, help="Use recorded outputs (JSONL) instead of the API")
+    ap.add_argument("--smoke", action="store_true",
+                    help=f"One real call on {SMOKE_ID} (about $0.001) to check the configured model, key and "
+                    "provider settings work; exits non-zero if they don't")
     args = ap.parse_args()
+    if args.smoke:
+        args.input, args.ids = args.input or SMOKE_INPUT, args.ids or SMOKE_ID
+    if not args.input:
+        ap.error("--input is required (or use --smoke)")
 
     cfg = load_config(args.config, model=args.model, replay=args.replay)
     messages = load_messages(args.input)
@@ -195,6 +228,26 @@ def main() -> None:
             file=sys.stderr,
         )
     print(f"\n{len(results)} messages, model={cfg.agent.model}, cost=${cost:.4f}", file=sys.stderr)
+    if args.smoke:
+        for r in results:
+            m = r.meta
+            print(f"smoke: model_used={m.model_used} attempts={m.attempts} structured_fallback={m.structured_fallback} "
+                  f"tokens in/cached/out={m.input_tokens}/{m.cached_input_tokens}/{m.output_tokens} "
+                  f"cost=${m.cost_usd:.5f} latency={m.latency_ms}ms error={m.error}", file=sys.stderr)
+    sys.exit(failsafe_exit_code(results, strict=args.smoke))
+
+
+def failsafe_exit_code(results: list[TriageResult], strict: bool = False) -> int:
+    """0 normally; 2 (with a loud warning) when fail-safes suggest the setup itself is broken.
+    strict (smoke test): any fail-safe counts."""
+    failed = [r for r in results if r.meta.failsafe]
+    if not results or not failed or (not strict and len(failed) / len(results) <= FAILSAFE_ALARM_SHARE):
+        return 0
+    errors = sorted({(r.meta.error or "unknown")[:160] for r in failed})
+    print(f"\nERROR: {len(failed)} of {len(results)} messages failed triage and were escalated unassessed. "
+          "This usually means the model, key or provider settings are wrong. Errors seen:\n  "
+          + "\n  ".join(errors[:5]), file=sys.stderr)
+    return 2
 
 
 if __name__ == "__main__":

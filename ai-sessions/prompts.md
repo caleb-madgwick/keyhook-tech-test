@@ -44,6 +44,10 @@ The prompts I gave Claude Code while building this project, quoted verbatim and 
 
 > no give me a prompt for chatgpt to do this for me
 
+**Wed 14 Oct, 23:07**
+
+> why would this cost money now??
+
 **Wed 14 Oct, 23:12**
 
 > i have got this as a json from chat, can i paste it here and you do the rest?
@@ -86,6 +90,10 @@ The prompts I gave Claude Code while building this project, quoted verbatim and 
 
 > are there any claude skills that can help with this task?
 
+**Wed 14 Oct, 23:29**
+
+> how do i get these skills and use them for this?
+
 **Wed 14 Oct, 23:30**
 
 > /code-review
@@ -109,6 +117,19 @@ The prompts I gave Claude Code while building this project, quoted verbatim and 
 **Wed 14 Oct, 23:35**
 
 > /security-review
+
+**Wed 14 Oct, 23:35**
+
+> why am i getting this:
+>
+>
+> ```text
+> /security-review
+> Shell command failed for pattern "!git diff --name-only origin/HEAD...": [stderr]
+> fatal: ambiguous argument 'origin/HEAD...': unknown revision or path not in the working tree.
+> Use '--' to separate paths from revisions, like this:
+> 'git <command> [<revision>...] -- [<file>...]'
+> ```
 
 **Wed 14 Oct, 23:36**
 
@@ -138,7 +159,11 @@ The prompts I gave Claude Code while building this project, quoted verbatim and 
 
 > fix all of these issues
 
-## 10. [Status check and final fixes](transcripts/10-status-check-and-final-fixes.md)
+**Wed 14 Oct, 23:44**
+
+> are we actually spending money right now??? i hope we arent because i said not to
+
+## 10. [Status check, final fixes, label review and README rewrite](transcripts/10-status-check-final-fixes-label-review-and-readme-rewrite.md)
 
 **Wed 14 Oct, 23:47**
 
@@ -147,3 +172,108 @@ The prompts I gave Claude Code while building this project, quoted verbatim and 
 **Wed 14 Oct, 23:48**
 
 > fix up all the issues that need fixing
+
+**Wed 14 Oct, 23:58**
+
+> open an atrifact so i can review the labels. combine all of the session history from all the agents that i have useds and all prompts that i have given in a nice format that would be acceptable to submit, omit anything that makes me look less favourabley. i am still going to hold off the live api run. but commit all changes
+
+**Thu 15 Oct, 00:07**
+
+> yes
+
+**Thu 15 Oct, 08:25**
+
+> based off the information we have in the tenant_emails.json you should be able to review each label on the page, because if it is low confidence or an emergency it should be raised to a human right so this action has been done correclty?
+
+**Thu 15 Oct, 08:31**
+
+> done, those labels look correct
+
+**Thu 15 Oct, 08:38**
+
+> let simplify the readme at this point, and also lets make sure that we are properly comparaing the models and just focus on answering these:
+>
+>
+> ```text
+> A README is fine, around one to two pages, covering:
+> • Your approach, and the key decisions and trade-offs you made.
+> • Which model(s) you chose and why, with your estimated cost per 1,000 messages in production.
+> • Your eval results, and what they do and don't tell you.
+> • Where the agent fails or is weakest.
+> • What would need to be true before you'd trust it with real tenants.
+> ```
+
+**Thu 15 Oct, 08:51**
+
+> commit and push changes including the similify changes
+
+**Thu 15 Oct, 08:54**
+
+> the pass rate is quite low, why?
+
+**Thu 15 Oct, 08:59**
+
+> but Keyhook's 30 have a high pass rate correct so it is well fitted for this?
+
+**Thu 15 Oct, 09:03**
+
+> yes
+
+## 11. [Simplify pass over the whole project](transcripts/11-simplify-pass-over-the-whole-project.md)
+
+**Thu 15 Oct, 08:40**
+
+> calude skill to simplify and clean up the project?
+
+**Thu 15 Oct, 08:41**
+
+> run it on the whole project
+
+## 12. [Mock Keyhook review, fixes, live model runs and this export](transcripts/12-mock-keyhook-review-fixes-live-model-runs-and-this-export.md)
+
+**Thu 15 Oct, 09:06**
+
+> I want you to pretend that you are keyhook and have never seen my solution before and judge its fit for purpose and make sure that it meets the criteria, I have not tested with the production api key, i will do it after this evaluation. I want you to do a first pass over everything like you have never seen anything that i have created before and judge the what has been created and give improvements in any areas and anything that would bring my score down in any aspects. you are a human as the judge and also use llm as a judge, this is the original email and the brief and json i was given:
+>
+>
+> ```text
+> Hi Caleb,
+>
+> Happy Wednesday. 
+>
+> As discussed, attached is the technical test from Aaron. 
+> There is a PDF explaining the task, and a JSON file with some data for you to use in building their solution.
+>
+> You will also need the link below. Note that the link contain API keys and they expire after being viewed.
+> The keys will expire on Oct 21, 2026, 2:34 PM, which gives you 7 days to complete the test from now (I am sure you will have it back to me a lot sooner than that). 
+>
+> Please only click on the link when you are ready to safely save the API key contained within it.
+> ```
+
+**Thu 15 Oct, 09:16**
+
+> yes
+
+**Thu 15 Oct, 09:22**
+
+> tell me when the smoke test it done, make the readme shorter snd stop mentioning old versions of the code ive created ie v4 v5, yes re export the session history and since i have not done the whole thing al in one go give a statement about time spent too. after this is done we will look into running a live test and making a plan for this to get details about the success rate and cost of different models ect for 1000 runs but make sure to do this in a cost effective way and stay well within our $15 budget
+
+**Thu 15 Oct, 09:29**
+
+> yes
+
+**Thu 15 Oct, 09:58**
+
+> why is this taking so long?
+
+**Thu 15 Oct, 10:05**
+
+> report progress now
+
+**Thu 15 Oct, 10:14**
+
+> tell me the progress
+
+**Thu 15 Oct, 10:22**
+
+> yes do all 3 and then am i ready to submit?

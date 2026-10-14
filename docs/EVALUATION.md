@@ -1,6 +1,8 @@
 # Evaluation detail
 
-The full evaluation write-up behind the summary in the [README](../README.md): data provenance, method, every result, and the caveats. Prompt and policy history is in [PROMPT_CHANGELOG.md](../PROMPT_CHANGELOG.md).
+The full evaluation write-up behind the summary in the [README](../README.md): data provenance, method, every result, and the caveats.
+
+> **Live results supersede the replay numbers below.** This document was written from replay runs (Claude subagents standing in for the model). The live OpenRouter run on 15 Oct 2026 and the model choice it informed are in the README (sections 2 and 3), with reports in `reports/` named after each real model (for example `tenant_emails_test_suite__anthropic_claude-haiku-5.5__*.md`) and the side-by-side table in `reports/model_comparison__*.md`. Replay reports have `replay_` in their names. Prompt and policy history is in [PROMPT_CHANGELOG.md](../PROMPT_CHANGELOG.md).
 
 ## Data and method
 
@@ -49,6 +51,22 @@ The full evaluation write-up behind the summary in the [README](../README.md): d
   - per-message checks, such as "the gas leak in msg_014 is an emergency" and "the injection in msg_016 is escalated and not an emergency"
 
 Labels I think are debatable were recorded in [data/label_notes.json](../data/label_notes.json) *before any model run*. They are flagged ⚑ in reports rather than quietly changed.
+
+## Live model comparison (15 Oct 2026)
+
+All five models ran live through OpenRouter with the same prompt, schema and pipeline. Keyhook's 30 ran with 3 repeats per model, and the judge (`openai/gpt-6-sol`) scored repeat 0. The full suite ran on four models; Sonnet ran on the 93 holdout messages only, for cost. Haiku and Luna also ran on both blind sets. Reports are in `reports/`, named after each model, with side-by-side tables in `reports/model_comparison__*.md`.
+
+| Live, 15 Oct 2026 | **Haiku 5.5** | GPT-6 Luna | Sonnet 5.5 | DeepSeek V4 Flash | Gemini 3.5 Flash Lite |
+|---|---|---|---|---|---|
+| Keyhook 30 pass rate (90 runs) | 86% | 90% | 92% | 86% | 80% |
+| Suite pass rate (349) | 72% | 80% | 86% (holdout only) | 76% | 72% |
+| Emergency recall | 100% | 100% | 100% | **95%** | **90%** |
+| Missed escalations, suite | **1** | 6 | 1 (holdout) | 17 | 7 |
+| Under-triage (see note) | **4** | 16 | 0 (holdout) | 10 | 9 |
+| Action quality, Keyhook 30 (judge, 0–2) / unsafe | 1.43 / 0 | 1.30 / 0 | 1.63 / 0 | 1.33 / **2** | 1.30 / 0 |
+| **Measured $ per 1,000 messages** | **$0.40–0.54** | $0.25–0.32 | $7.05–8.12 | $0.16–0.19 | $1.74–1.80 |
+
+*Under-triage for Haiku and Luna covers the suite plus both blind sets; DeepSeek's and Gemini's cover the suite only (10 and 9).* DeepSeek's 2 unsafe actions were on msg_011 (lockout) and msg_017 (auto-reply). Gemini never hit the prompt cache, so it pays full input price. The model decision, and the fact that blind-set results informed it, is in the README (section 2) and in PROMPT_CHANGELOG.md.
 
 ## Results
 

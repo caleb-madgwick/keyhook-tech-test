@@ -1,0 +1,274 @@
+{
+  "dataset": "data/blind_test_set.json",
+  "split": "all",
+  "group": null,
+  "model": "openai/gpt-6-luna",
+  "backend": "openrouter",
+  "prompt_version": "v5",
+  "prompt_digest": "7e77d7",
+  "judge_model": null,
+  "repeats": 1,
+  "n_messages": 120,
+  "run_dir": "runs/blind_test_set__57050f/openai_gpt-6-luna__v5__4a1aaa8a48",
+  "spent_this_run": {
+    "agent": 0.03622155,
+    "judge": 0.0,
+    "skipped_for_budget": 0
+  },
+  "metrics": {
+    "category": {
+      "n": 120,
+      "strict_accuracy": 0.8833333333333333,
+      "lenient_accuracy": 0.95,
+      "also_mentions_precision": 0.6875,
+      "also_mentions_recall": 0.3333333333333333,
+      "confusion": {
+        "maintenance": {
+          "maintenance": 55,
+          "arrears": 1,
+          "complaint": 3,
+          "enquiry": 1,
+          "other": 0
+        },
+        "arrears": {
+          "maintenance": 1,
+          "arrears": 13,
+          "complaint": 0,
+          "enquiry": 2,
+          "other": 0
+        },
+        "complaint": {
+          "maintenance": 0,
+          "arrears": 0,
+          "complaint": 9,
+          "enquiry": 0,
+          "other": 0
+        },
+        "enquiry": {
+          "maintenance": 0,
+          "arrears": 0,
+          "complaint": 2,
+          "enquiry": 16,
+          "other": 1
+        },
+        "other": {
+          "maintenance": 1,
+          "arrears": 0,
+          "complaint": 0,
+          "enquiry": 2,
+          "other": 13
+        }
+      }
+    },
+    "urgency": {
+      "n": 120,
+      "accuracy": 0.8916666666666667,
+      "under_triage": 9,
+      "over_triage": 4,
+      "emergency_recall": 1.0,
+      "emergency_n": 17,
+      "confusion": {
+        "emergency": {
+          "emergency": 17,
+          "urgent": 0,
+          "routine": 0
+        },
+        "urgent": {
+          "emergency": 0,
+          "urgent": 22,
+          "routine": 9
+        },
+        "routine": {
+          "emergency": 0,
+          "urgent": 4,
+          "routine": 68
+        }
+      }
+    },
+    "escalation": {
+      "n": 120,
+      "accuracy": 0.9333333333333333,
+      "recall": 0.9682539682539683,
+      "precision": 0.9104477611940298,
+      "f1": 0.9384615384615386,
+      "tp": 61,
+      "fp": 6,
+      "fn": 2,
+      "tn": 51
+    },
+    "reliability": {
+      "n": 120,
+      "failsafe_count": 0,
+      "retried_count": 0,
+      "latency_p50_ms": 4310.5,
+      "latency_p95_ms": 11007,
+      "mean_cost_usd": 0.00030184624999999996,
+      "total_cost_usd": 0.03622155,
+      "mean_input_tokens": 3124.45,
+      "mean_cached_input_tokens": 2979.0,
+      "mean_output_tokens": 507.9
+    },
+    "consistency": {
+      "messages_with_repeats": 0,
+      "stable_rate": null,
+      "unstable_ids": []
+    },
+    "judge": null,
+    "pass_rate": 0.7166666666666667,
+    "by_split": {
+      "dev": {
+        "n": 78,
+        "pass_rate": 0.6794871794871795,
+        "category": 0.8589743589743589,
+        "urgency": 0.8717948717948718,
+        "escalation": 0.9358974358974359,
+        "escalation_recall": 0.9761904761904762,
+        "under_triage": 7
+      },
+      "holdout": {
+        "n": 42,
+        "pass_rate": 0.7857142857142857,
+        "category": 0.9285714285714286,
+        "urgency": 0.9285714285714286,
+        "escalation": 0.9285714285714286,
+        "escalation_recall": 0.9523809523809523,
+        "under_triage": 2
+      }
+    },
+    "by_group": {
+      "blind": {
+        "n": 120,
+        "pass_rate": 0.7166666666666667,
+        "category": 0.8833333333333333,
+        "urgency": 0.8916666666666667,
+        "escalation": 0.9333333333333333,
+        "escalation_recall": 0.9682539682539683,
+        "under_triage": 9
+      }
+    },
+    "by_confidence": {
+      "high": {
+        "n": 98,
+        "pass_rate": 0.7653061224489796,
+        "category": 0.9285714285714286,
+        "urgency": 0.8979591836734694,
+        "escalation": 0.9387755102040817,
+        "escalation_recall": 0.9534883720930233,
+        "under_triage": 6
+      },
+      "low": {
+        "n": 4,
+        "pass_rate": 0.75,
+        "category": 0.75,
+        "urgency": 1.0,
+        "escalation": 1.0,
+        "escalation_recall": 1.0,
+        "under_triage": 0
+      },
+      "medium": {
+        "n": 18,
+        "pass_rate": 0.4444444444444444,
+        "category": 0.6666666666666666,
+        "urgency": 0.8333333333333334,
+        "escalation": 0.8888888888888888,
+        "escalation_recall": 1.0,
+        "under_triage": 3
+      }
+    },
+    "failing_tags": [
+      [
+        "multi-intent",
+        11,
+        30
+      ],
+      [
+        "debatable-primary",
+        10,
+        14
+      ],
+      [
+        "urgent",
+        7,
+        19
+      ],
+      [
+        "bilingual",
+        6,
+        9
+      ],
+      [
+        "inspection",
+        4,
+        5
+      ],
+      [
+        "tenancy-law",
+        4,
+        8
+      ],
+      [
+        "healthy-homes",
+        3,
+        5
+      ],
+      [
+        "access-dispute",
+        2,
+        2
+      ],
+      [
+        "administrative",
+        2,
+        5
+      ],
+      [
+        "children",
+        2,
+        3
+      ],
+      [
+        "complaint",
+        2,
+        3
+      ],
+      [
+        "essential-facility",
+        2,
+        2
+      ],
+      [
+        "essential-service",
+        2,
+        7
+      ],
+      [
+        "false-alarm",
+        2,
+        9
+      ],
+      [
+        "hardship",
+        2,
+        6
+      ]
+    ]
+  },
+  "gates": [
+    {
+      "name": "No fail-safe results",
+      "passed": true,
+      "detail": "0 fail-safe"
+    },
+    {
+      "name": "Emergency recall = 100%",
+      "passed": true,
+      "detail": "100% of 17"
+    },
+    {
+      "name": "Escalation recall >= 90%",
+      "passed": true,
+      "detail": "97% (2 missed)"
+    }
+  ],
+  "gates_passed": true
+}

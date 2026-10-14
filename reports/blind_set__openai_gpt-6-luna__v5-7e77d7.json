@@ -1,0 +1,355 @@
+{
+  "dataset": "data/blind_set.json",
+  "split": "all",
+  "group": null,
+  "model": "openai/gpt-6-luna",
+  "backend": "openrouter",
+  "prompt_version": "v5",
+  "prompt_digest": "7e77d7",
+  "judge_model": null,
+  "repeats": 1,
+  "n_messages": 80,
+  "run_dir": "runs/blind_set__519f73/openai_gpt-6-luna__v5__4a1aaa8a48",
+  "spent_this_run": {
+    "agent": 0.021846199999999993,
+    "judge": 0.0,
+    "skipped_for_budget": 0
+  },
+  "metrics": {
+    "category": {
+      "n": 80,
+      "strict_accuracy": 0.9875,
+      "lenient_accuracy": 0.9875,
+      "also_mentions_precision": 0.5555555555555556,
+      "also_mentions_recall": 0.8333333333333334,
+      "confusion": {
+        "maintenance": {
+          "maintenance": 34,
+          "arrears": 0,
+          "complaint": 0,
+          "enquiry": 0,
+          "other": 0
+        },
+        "arrears": {
+          "maintenance": 0,
+          "arrears": 9,
+          "complaint": 0,
+          "enquiry": 0,
+          "other": 0
+        },
+        "complaint": {
+          "maintenance": 0,
+          "arrears": 0,
+          "complaint": 8,
+          "enquiry": 0,
+          "other": 0
+        },
+        "enquiry": {
+          "maintenance": 0,
+          "arrears": 0,
+          "complaint": 0,
+          "enquiry": 18,
+          "other": 0
+        },
+        "other": {
+          "maintenance": 0,
+          "arrears": 0,
+          "complaint": 0,
+          "enquiry": 1,
+          "other": 10
+        }
+      }
+    },
+    "urgency": {
+      "n": 80,
+      "accuracy": 0.95,
+      "under_triage": 2,
+      "over_triage": 2,
+      "emergency_recall": 1.0,
+      "emergency_n": 8,
+      "confusion": {
+        "emergency": {
+          "emergency": 8,
+          "urgent": 0,
+          "routine": 0
+        },
+        "urgent": {
+          "emergency": 2,
+          "urgent": 12,
+          "routine": 2
+        },
+        "routine": {
+          "emergency": 0,
+          "urgent": 0,
+          "routine": 56
+        }
+      }
+    },
+    "escalation": {
+      "n": 80,
+      "accuracy": 0.95,
+      "recall": 1.0,
+      "precision": 0.9069767441860465,
+      "f1": 0.951219512195122,
+      "tp": 39,
+      "fp": 4,
+      "fn": 0,
+      "tn": 37
+    },
+    "reliability": {
+      "n": 80,
+      "failsafe_count": 0,
+      "retried_count": 0,
+      "latency_p50_ms": 4160.5,
+      "latency_p95_ms": 8019,
+      "mean_cost_usd": 0.0002730775,
+      "total_cost_usd": 0.0218462,
+      "mean_input_tokens": 3153.7,
+      "mean_cached_input_tokens": 2979.0,
+      "mean_output_tokens": 443.05
+    },
+    "consistency": {
+      "messages_with_repeats": 0,
+      "stable_rate": null,
+      "unstable_ids": []
+    },
+    "judge": null,
+    "pass_rate": 0.9,
+    "by_split": {
+      "dev": {
+        "n": 53,
+        "pass_rate": 0.9056603773584906,
+        "category": 1.0,
+        "urgency": 0.9433962264150944,
+        "escalation": 0.9433962264150944,
+        "escalation_recall": 1.0,
+        "under_triage": 1
+      },
+      "holdout": {
+        "n": 27,
+        "pass_rate": 0.8888888888888888,
+        "category": 0.9629629629629629,
+        "urgency": 0.9629629629629629,
+        "escalation": 0.9629629629629629,
+        "escalation_recall": 1.0,
+        "under_triage": 1
+      }
+    },
+    "by_group": {
+      "adversarial": {
+        "n": 8,
+        "pass_rate": 1.0,
+        "category": 1.0,
+        "urgency": 1.0,
+        "escalation": 1.0,
+        "escalation_recall": 1.0,
+        "under_triage": 0
+      },
+      "arrears": {
+        "n": 7,
+        "pass_rate": 1.0,
+        "category": 1.0,
+        "urgency": 1.0,
+        "escalation": 1.0,
+        "escalation_recall": 1.0,
+        "under_triage": 0
+      },
+      "complaint": {
+        "n": 7,
+        "pass_rate": 1.0,
+        "category": 1.0,
+        "urgency": 1.0,
+        "escalation": 1.0,
+        "escalation_recall": 1.0,
+        "under_triage": 0
+      },
+      "contra": {
+        "n": 7,
+        "pass_rate": 1.0,
+        "category": 1.0,
+        "urgency": 1.0,
+        "escalation": 1.0,
+        "escalation_recall": 1.0,
+        "under_triage": 0
+      },
+      "emerg": {
+        "n": 10,
+        "pass_rate": 0.8,
+        "category": 0.9,
+        "urgency": 0.9,
+        "escalation": 0.9,
+        "escalation_recall": 1.0,
+        "under_triage": 0
+      },
+      "enquiry": {
+        "n": 8,
+        "pass_rate": 1.0,
+        "category": 1.0,
+        "urgency": 1.0,
+        "escalation": 1.0,
+        "escalation_recall": 1.0,
+        "under_triage": 0
+      },
+      "fpfn": {
+        "n": 7,
+        "pass_rate": 1.0,
+        "category": 1.0,
+        "urgency": 1.0,
+        "escalation": 1.0,
+        "escalation_recall": 1.0,
+        "under_triage": 0
+      },
+      "lang": {
+        "n": 10,
+        "pass_rate": 0.6,
+        "category": 1.0,
+        "urgency": 0.8,
+        "escalation": 0.8,
+        "escalation_recall": 1.0,
+        "under_triage": 1
+      },
+      "maint": {
+        "n": 10,
+        "pass_rate": 0.8,
+        "category": 1.0,
+        "urgency": 0.9,
+        "escalation": 0.9,
+        "escalation_recall": null,
+        "under_triage": 1
+      },
+      "other": {
+        "n": 6,
+        "pass_rate": 1.0,
+        "category": 1.0,
+        "urgency": 1.0,
+        "escalation": 1.0,
+        "escalation_recall": 1.0,
+        "under_triage": 0
+      }
+    },
+    "by_confidence": {
+      "high": {
+        "n": 74,
+        "pass_rate": 0.9054054054054054,
+        "category": 0.9864864864864865,
+        "urgency": 0.9459459459459459,
+        "escalation": 0.9594594594594594,
+        "escalation_recall": 1.0,
+        "under_triage": 2
+      },
+      "low": {
+        "n": 3,
+        "pass_rate": 1.0,
+        "category": 1.0,
+        "urgency": 1.0,
+        "escalation": 1.0,
+        "escalation_recall": 1.0,
+        "under_triage": 0
+      },
+      "medium": {
+        "n": 3,
+        "pass_rate": 0.6666666666666666,
+        "category": 1.0,
+        "urgency": 1.0,
+        "escalation": 0.6666666666666666,
+        "escalation_recall": 1.0,
+        "under_triage": 0
+      }
+    },
+    "failing_tags": [
+      [
+        "blind",
+        8,
+        80
+      ],
+      [
+        "non-english",
+        4,
+        8
+      ],
+      [
+        "security",
+        3,
+        4
+      ],
+      [
+        "contained",
+        2,
+        2
+      ],
+      [
+        "no-action",
+        2,
+        2
+      ],
+      [
+        "auto-reply",
+        1,
+        2
+      ],
+      [
+        "child",
+        1,
+        3
+      ],
+      [
+        "framed-as-access-request",
+        1,
+        1
+      ],
+      [
+        "glass",
+        1,
+        1
+      ],
+      [
+        "heating",
+        1,
+        1
+      ],
+      [
+        "japanese",
+        1,
+        1
+      ],
+      [
+        "lock",
+        1,
+        1
+      ],
+      [
+        "night",
+        1,
+        3
+      ],
+      [
+        "no-injury",
+        1,
+        1
+      ],
+      [
+        "no-vulnerable-occupant",
+        1,
+        1
+      ]
+    ]
+  },
+  "gates": [
+    {
+      "name": "No fail-safe results",
+      "passed": true,
+      "detail": "0 fail-safe"
+    },
+    {
+      "name": "Emergency recall = 100%",
+      "passed": true,
+      "detail": "100% of 8"
+    },
+    {
+      "name": "Escalation recall >= 90%",
+      "passed": true,
+      "detail": "100% (0 missed)"
+    }
+  ],
+  "gates_passed": true
+}

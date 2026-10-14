@@ -1,6 +1,6 @@
 # 5. Claude skills, code review and security review
 
-Claude Code session, Wed 14 Oct, 23:28 to 23:40 AEDT. 4 prompts, 1 subagent.
+Claude Code session, Wed 14 Oct, 23:28 to 23:40 AEDT. 5 prompts, 1 subagent.
 
 Prompts are quoted verbatim. Claude's replies are shown in full; tool calls are collapsed to one line each and tool output is left out.
 
@@ -35,6 +35,45 @@ This is a take-home for Keyhook: an LLM agent that triages tenant messages, plus
 None of the other installed skills apply. Those are the Cloudflare, Stream, Office-file and scheduling ones.
 
 The next step your README names is the real model comparison against the API. I can't run that until an `OPENROUTER_API_KEY` is in `.env`; it would cost about US$1.50. I can start a review or the CLAUDE.md now if you like.
+
+
+### 23:29 · Prompt
+
+> how do i get these skills and use them for this?
+
+You don't need to install anything. Every skill I listed is already available in this session. You can use one in two ways:
+
+**1. Type it as a slash command** in the Claude Code prompt box, with optional arguments after it:
+
+| Command | What to type for this project |
+|---|---|
+| `/code-review` | `/code-review high triage/` reviews the triage package at high effort. Add `--fix` to apply what it finds. |
+| `/security-review` | `/security-review`. It reviews pending changes on a branch, so it needs a commit first (see below). |
+| `/simplify` | `/simplify triage/` |
+| `/init` | `/init` writes a CLAUDE.md for the repo. |
+| `/claude-api` | `/claude-api check the Haiku 5.5 pricing and caching assumptions in README.md` |
+| `/fewer-permission-prompts` | `/fewer-permission-prompts` |
+
+**2. Just ask.** Some skills load automatically when the request matches, so you never type their names:
+- **dataviz:** "Chart the per-category pass rates from the v4 reports."
+- **docs / artifact-design:** "Write up the eval results as a doc for the Keyhook reviewers."
+
+**One setup step for the review skills.** Nothing in the repo is committed yet, so `/code-review` and `/security-review` have no diff to look at. You have two options:
+- **Commit everything first:** `git add -A && git commit -m "Initial triage agent"`. The review skills can then review the whole codebase. Check that `.env` is in `.gitignore` before you do this, so the API key isn't committed.
+- **Pass a path instead:** for example `/code-review high triage/`.
+
+**If you want skills beyond these**, there are two routes:
+- **`/plugin`** browses plugin marketplaces and installs from them.
+- **`/skill-creator`** helps you write your own. For example, you could make a skill that runs `triage.eval` and summarises the safety gates after each prompt change.
+
+For this tech test I'd suggest this order:
+1. `/init`
+2. Commit
+3. `/code-review high`
+4. `/security-review`
+5. Ask for a results write-up for the reviewers.
+
+I can start on any of these now if you'd like.
 
 
 ### 23:30 · Prompt

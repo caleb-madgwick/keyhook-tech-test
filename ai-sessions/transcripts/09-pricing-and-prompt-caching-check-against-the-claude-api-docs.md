@@ -1,6 +1,6 @@
 # 9. Pricing and prompt-caching check against the Claude API docs
 
-Claude Code session, Wed 14 Oct, 23:37 to 23:44 AEDT. 2 prompts, 0 subagents.
+Claude Code session, Wed 14 Oct, 23:37 to 23:44 AEDT. 3 prompts, 0 subagents.
 
 Prompts are quoted verbatim. Claude's replies are shown in full; tool calls are collapsed to one line each and tool output is left out.
 
@@ -137,3 +137,32 @@ I've fixed everything I flagged, and the 132 offline tests pass. Nothing has bee
 - **Other sessions' edits.** README.md, PROMPT_CHANGELOG.md, agent.py and eval.py already had another session's uncommitted changes. I made targeted edits on top and didn't touch theirs. I also changed the README's test count to 132, which was already out of date.
 
 **Changelog.** There's a new post-freeze code-change entry at the end of `PROMPT_CHANGELOG.md` covering all of this. It notes that no blind or holdout results informed it.
+
+
+### 23:44 · Prompt
+
+> are we actually spending money right now??? i hope we arent because i said not to
+
+<details><summary>1 tool call (Bash)</summary>
+
+- Bash: Check spend ledger and running processes
+
+</details>
+
+No, we're not spending anything. I made no paid API calls in this session, and nothing is running now. I checked:
+
+- **No recorded spend.** The spend ledger (`runs/spend_ledger.jsonl`) doesn't exist, and the harness only creates it when a real call costs money. So no paid call has ever been recorded in this repo.
+- **Nothing running.** No triage processes are active.
+
+What I did that touched a model or the network:
+
+| What | Cost | Why it was free |
+|---|---|---|
+| Fetched OpenRouter's public model list (`/api/v1/models`) | $0 | It's a free public catalogue read, made without your API key. It just lists prices and supported parameters. |
+| Re-scored the v5 suite | $0 | Replay mode reads the recorded answers in `replays/` and never calls the API. It printed "Spent this run: agent $0.0000". |
+| Ran the 132 tests | $0 | The client tests use a fake network that never leaves the machine. |
+| Anthropic API | not used | No Anthropic key is set up here, so I couldn't call it. |
+
+Earlier I offered to get exact token counts from Anthropic's free token-counting endpoint. I didn't do that.
+
+Nothing I changed spends money on its own. The new caching and temperature settings only take effect when you run the agent against the real API, for example with `python -m triage.compare`. That's still your call to make.

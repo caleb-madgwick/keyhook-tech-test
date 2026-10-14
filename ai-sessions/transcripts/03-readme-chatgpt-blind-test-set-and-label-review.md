@@ -1,6 +1,6 @@
 # 3. README, ChatGPT blind test set and label review
 
-Claude Code session, Wed 14 Oct, 22:59 to 23:39 AEDT. 9 prompts, 0 subagents.
+Claude Code session, Wed 14 Oct, 22:59 to 23:39 AEDT. 10 prompts, 0 subagents.
 
 Prompts are quoted verbatim. Claude's replies are shown in full; tool calls are collapsed to one line each and tool output is left out.
 
@@ -245,6 +245,23 @@ The output is long, so send 30 messages per reply (blind_001 to blind_030 first)
    Read the overall numbers only. The harness assigns messages to dev or holdout by a hash of their id, so it will report a dev/holdout breakdown for this file too. That breakdown doesn't mean anything here, because the whole file is blind.
 
 Running it should cost about $0.10 for the agent on Haiku, plus about $0.40 if the judge runs too.
+
+
+### 23:07 · Prompt
+
+> why would this cost money now??
+
+Generating the messages in ChatGPT is free on your subscription. The cost comes later, when you run the eval.
+
+`triage.eval` sends each message to the triage model through OpenRouter, the same way the agent would work in production. That's an API call per message, and it's billed to the US$15 Keyhook key. It isn't something new that started now; every eval run against the real model works this way. We just haven't run one yet.
+
+For 120 messages:
+- **Agent (Haiku 5.5):** about US$0.07. Each message is roughly 3,300 tokens in and 400 out, which comes to about $0.0006.
+- **Judge (GPT-6 Sol):** about US$0.35. It scores the `required_action` text, and it's a pricier model. Add `--no-judge` to skip it and pay only for the agent.
+
+**This is spend you want.** The brief gives you the key specifically "for your agent and your evals", and Keyhook will look at its usage history. If they see zero calls, it looks like the agent was never tested against a real model. Spending a few dollars across all the runs is expected.
+
+**Free alternative:** use the replay/offline path, which is what your other session is doing. Claude Code subagents answer the prompts instead of the API. That only measures Claude Code's model, though, not your configured Haiku through OpenRouter, and cost and latency are only estimates. It's fine for debugging the harness, but not for the results you report.
 
 
 ### 23:12 · Prompt

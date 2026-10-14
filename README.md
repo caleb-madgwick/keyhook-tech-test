@@ -1,143 +1,88 @@
 # Tenant Message Triage Agent
 
-An LLM agent that triages tenant messages for a property manager (PM), with an evaluation harness that scores it against labelled data. For each message it returns a category, an urgency, a recommended next action, whether a person must review it first and why, and its reasoning.
+An LLM agent that triages tenant messages for a property manager (PM), and an evaluation harness that scores it against labelled data. For each message it returns a category, an urgency, a next action, whether a person must review it first and why, and its reasoning.
 
 ```bash
 python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
 cp .env.example .env                               # add OPENROUTER_API_KEY
 .venv/bin/python -m pytest -q                      # offline tests, no API calls
+.venv/bin/python -m triage.agent --smoke           # one real call (~$0.001): checks model, key and provider settings
 .venv/bin/python -m triage.agent --input tenant_emails.json --out results.jsonl
 .venv/bin/python -m triage.eval --dataset tenant_emails.json    # exits 1 if a safety gate fails
 ```
 
-Settings (model, prompt version, escalation policy, spend caps) are in [config.yaml](config.yaml). The full evaluation write-up is in [docs/EVALUATION.md](docs/EVALUATION.md), and every prompt and policy change is in [PROMPT_CHANGELOG.md](PROMPT_CHANGELOG.md).
+Model, policy and spend caps live in [config.yaml](config.yaml). Input is `{"messages": [...]}` or a bare list; only `subject` and `body` are needed. The detail is in [docs/EVALUATION.md](docs/EVALUATION.md), and [PROMPT_CHANGELOG.md](PROMPT_CHANGELOG.md) logs every prompt and policy change.
 
-## 1. Approach, key decisions and trade-offs
+## 1. Approach and trade-offs
 
-- **The model extracts and code decides.** The model returns each issue in the message with its own category and urgency, plus any reasons for review and its confidence. Code in [triage/guardrails.py](triage/guardrails.py) derives the final fields:
-  - **urgency** is the highest urgency of any issue, so an emergency buried in small talk can't be averaged away
-  - **escalate_to_human** is true if any review reason applies
-  - every code rule can only push a message *towards* a person
-- **Schema changes.**
-  - `issues[]` handles messages with several requests.
-  - `escalation_reasons[]` tells the PM *why* a message is in their queue (`hardship`, `legal_or_tenancy_law`, `manipulation_attempt`…).
-  - `confidence` lets uncertain answers escalate.
-  - `languages` sends every non-English message to a person to check the translation.
-- **Code where code is more reliable than a model:**
-  - a regex backstop for blatant prompt injection
-  - stripping invisible characters and decoding base64
-  - NZ business-hours detection
-  - fixed emergency wording ("call 111 now"), because the model twice made the 111 call conditional while smoke was present
-  - output validation, retries and spend caps
-- **Fail closed.** A model error, timeout or invalid output escalates the message as `triage_failed`, so nothing is dropped or auto-handled without a model answer.
-- **Main trade-off: recall over PM workload.** Medium- and low-confidence answers escalate, and so does every non-English message. Missed escalations are near zero, but 57–69% of messages reach a person, and the suite pass rate is 76% (it was 89% under v4's leaner policy). Escalating only low confidence again is one config line.
-- **No API spend so far.** Everything was evaluated in *replay mode*: Claude subagents answered the exact prompts the agent sends, and the real pipeline scored their answers.
-- **Assumptions.** The tenancies are in New Zealand (toby, WINZ, +12:00 timestamps). The agent recommends actions; it never takes them or makes promises.
+- **The model extracts facts; code decides.** The model lists each issue with its own category and urgency, plus review reasons and its confidence. [triage/guardrails.py](triage/guardrails.py) derives the final fields: urgency is the highest of any issue (so a gas smell buried in small talk stays an emergency), the primary category comes from the most urgent issue, and any review reason escalates. Code rules can only push a message towards a person.
+- **Schema additions.** `issues[]` handles multi-request messages; `escalation_reasons[]` tells the PM why a message is in their queue; `confidence` lets uncertain answers escalate; `languages` sends non-English mail for a translation check.
+- **Plain code where it beats a model:** an injection regex backstop, invisible-character and base64 handling, NZ business hours, validation, retries, spend caps, and fixed emergency wording ("call 111 now"), since the model once made a 111 call conditional.
+- **Fail closed.** Any model error, invalid output or content-filter stop escalates as `triage_failed`; if most of a run fails, the CLI exits non-zero.
+- **Main trade-off: recall over PM workload.** Medium- and low-confidence answers escalate, so missed escalations are near zero but more messages reach a person: 52% of Keyhook's 30 (Keyhook's labels escalate 50%) and 72% of the harder generated suite. Low-only escalation is one config line.
+- **Assumptions.** NZ tenancies (toby, WINZ, +12:00). The agent recommends; it never acts or makes promises.
 
 ## 2. Model choice and cost
 
-**Choice: `anthropic/claude-haiku-5.5`.** The rule, set before any comparison, was *the cheapest model that passes every safety gate*. Triage is short classification and extraction over a long rulebook, so a small model with reliable structured output fits.
+**Choice: `anthropic/claude-haiku-5.5`.** Triage is short extraction against a long rulebook, which suits a small model with reliable structured output. I ran five models live through the same pipeline ([full comparison](docs/EVALUATION.md#live-model-comparison-15-oct-2026)):
 
-I compared Haiku with Sonnet 5.5 on the same 256 dev messages, through the same pipeline. Both stand-ins were Claude subagents given the identical system prompt. Sonnet's actions were judged by Claude Opus, so the judge wasn't grading its own model's work.
+| Live, 349-message suite | Emergency recall | Missed escalations | Under-triage* | Pass rate | $ per 1,000 |
+|---|---|---|---|---|---|
+| **Haiku 5.5** | 100% | **1** | **4** | 72% | $0.40–0.54 |
+| GPT-6 Luna | 100% | 6 | 16 | 80% | $0.25–0.32 |
+| Sonnet 5.5 (holdout 93 only) | 100% | 1 | 0 | 86% | $7.05–8.12 |
+| DeepSeek V4 Flash | 95% | 17 | 10 | 76% | $0.16–0.19 |
+| Gemini 3.5 Flash Lite | 90% | 7 | 9 | 72% | $1.74–1.80 |
 
-| Same 256 dev messages | Haiku 5.5 | Sonnet 5.5 |
-|---|---|---|
-| Safety gates | **all pass** | **1 fails** (an unsafe action) |
-| Pass rate (category, urgency and escalation all correct) | 76% | 86% |
-| Emergency recall (30 emergencies) | 100% | 100% |
-| Under-triage / over-triage | 0 / 15 | 0 / 7 |
-| Escalation recall | **100%** | 99% (2 missed) |
-| Unnecessary escalations | 38 | **18** |
-| Keyhook's 30 messages, pass rate | 90% | 100% |
-| Action quality (judge, 0–2) / unsafe actions | 1.83 / **0** | 1.79 / 1 |
-| Est. cost per 1,000 messages | **$0.61** | $11.34 |
+\*Haiku and Luna: suite plus both blind sets.
 
-Sonnet classifies better and sends about half as many messages to a person unnecessarily (roughly 80 fewer per 1,000). But it **fails the safety gate** and is the less safe model where it matters:
-- **It writes its own emergency advice.** Haiku defers to the fixed safety text that code adds, but Sonnet improvises. It told a tenant to unplug a wet, sparking multibox, which the judge flagged as unsafe. In a gas-smell emergency it said to call the gas line "if the smell returns".
-- **It missed 2 escalations that Haiku caught.** One was a tenant who had disabled a smoke alarm, the other a six-issue email with a contractor complaint. Neither was an emergency.
-- **It costs 19 times more.**
+**Why Haiku, and a disclosed change of rule.** My pre-stated rule, *the cheapest model that passes every safety gate*, picks Luna. Haiku failed one gate ("no failed triage") on 2 of 549 messages, where the provider's content filter cut its answer off and the message went to a person as designed. Luna's errors are silent: 4 times Haiku's under-triage (9 on the ChatGPT blind set alone), more missed escalations, and the rent-withholding message rated routine in all 3 runs. I chose Haiku after seeing these results, blind sets included, because an unassessed escalation is safe and an under-triage is not. Sonnet is most accurate but costs 15 times more; DeepSeek and Gemini miss emergencies.
 
-Haiku is the cheapest model that passes every gate, so it's the choice. Sonnet's accuracy shows there is headroom, especially for cutting PM workload. If Sonnet's emergency advice were restricted to the fixed wording, it would be worth re-testing.
-
-Costs at OpenRouter list prices (15 Oct 2026), using Haiku's measured token counts (Sonnet uses its own, shorter output). DeepSeek, GPT-6 Luna and Gemini are compared on cost only; their quality hasn't been tested yet.
-
-| Model | $ per 1M tokens (in / out) | Est. $ per 1,000 messages |
-|---|---|---|
-| `deepseek/deepseek-v4-flash` | 0.091 / 0.18 | $0.46 |
-| `anthropic/claude-haiku-5.5` (chosen) | 0.10 / 0.50 | $0.61 |
-| `openai/gpt-6-luna` | 0.10 / 0.50 | $0.61 |
-| `google/gemini-3.5-flash-lite` | 0.30 / 2.50 | $2.18 |
-| `anthropic/claude-sonnet-5.5` | 2.00 / 10.00 | $11.34 |
-
-**Production estimate: about US$0.61 per 1,000 messages** (4,335 input and 353 output tokens per message), or about $0.31 when prompt caching hits. I'd budget **about $1 per 1,000** to cover thinking tokens, retries and tokenizer error. Token counts are estimates until the first API call ([detail](docs/EVALUATION.md#cost-detail)). The judge runs only in evaluation, so it isn't a production cost.
-
-**Next step:** `python -m triage.compare --split dev` (about $2–4) runs all five real models through OpenRouter. If DeepSeek or GPT-6 Luna also passes every gate, the rule would pick DeepSeek on price, subject to a data-handling check.
+**Production cost: about US$0.40 per 1,000 messages** with a warm prompt cache (5,437 input tokens per message, 5,181 from cache, plus 651 output tokens including thinking), and about **$1.00** when messages arrive more than 5 minutes apart. I'd budget **$1 per 1,000**. The judge runs only in evaluation. All live runs used about **$3.15 of the $15 key**.
 
 ## 3. Eval results, and what they do and don't tell you
 
-**Data:**
-- **Keyhook's 30 labelled messages**: the only real ground truth.
-- **A 349-message suite I generated with AI**: Keyhook's 30 plus 319 edge cases (emergencies, non-English, injection, contradictions, tone traps), split into 256 *dev* (used while tuning the prompt) and 93 *holdout* (scored only).
-- **Two blind sets** written by models that never saw the prompt: 80 messages from a separate Claude subagent and 120 from ChatGPT. ChatGPT saw only Keyhook's label definitions and two example messages.
+**Data:** Keyhook's 30 (the only real ground truth); a 349-message generated suite (Keyhook's 30 plus 319 edge cases: 256 *dev* used for tuning, 93 *holdout*); and two blind sets from models that never saw the prompt (80 from a separate Claude agent, 120 from ChatGPT given only Keyhook's label definitions). I developed in a free *replay mode* (Claude subagents answering the exact prompts); every number here is live.
 
-ChatGPT's labels were cross-checked against Keyhook's. Six were corrected *after* the v4 and v5 runs, so the table uses the original labels, and all 17 emergency and 18 low-confidence labels were hand-checked ([detail](docs/EVALUATION.md)).
+**Haiku 5.5, live:**
 
-**Results** (prompt v5, Haiku stand-in; every safety gate passes on every set):
+| Dataset | Pass rate | Emergency recall | Escalation recall / precision | Under / over-triage |
+|---|---|---|---|---|
+| **Keyhook's 30 (3 repeats)** | 86% | 100% (6 of 6) | 100% / 96% | 0 / 7 |
+| Suite, dev (256) | 72% | 100% (30) | 100% / 78% | 2 / 21 |
+| Suite, holdout (93) | 73% | 100% (11) | 98% / 79% | 0 / 7 |
+| Claude blind set (80) | 81% | 100% (8) | 100% / 83% | 1 / 4 |
+| **ChatGPT set, last 30 (truly blind)** | 67% | 100% (1) | 92% / 65% | 1 / 2 |
+| Keyword rules, no LLM (ChatGPT first 90) | 23% | 19% | 23% / 80% | 23 / 9 |
 
-| Dataset | Pass rate | Emergency recall | Escalation recall / precision | Under / over-triage | Unsafe actions |
-|---|---|---|---|---|---|
-| **Keyhook's 30** | 90% | 100% (2) | 100% / 88% | 0 / 0 | 0 |
-| Suite, dev (256) | 76% | 100% (30) | 100% / 79% | 0 / 15 | 0 |
-| Suite, holdout (93) | 71% | 100% (11) | 98% / 78% | 2 / 6 | 0 |
-| Claude blind set (80) | 78% | 100% (8) | 100% / 76% | 1 / 5 | 0 |
-| ChatGPT set, first 90 (post-hoc for v5, original labels) | 73% | 100% (16) | 98% / 88% | 2 / 3 | 0 |
-| **ChatGPT set, last 30 (blind for v5)** | 70% | 100% (1) | 92% / 69% | 2 / 0 | 0 |
-| Keyword rules, no LLM (baseline) | 22% | 19% | 23% / 80% | 23 / 9 | n/a |
+Pass rate means category, urgency and escalation all correct. The 2 messages stopped by the content filter (one holdout, one Claude blind) were escalated and are left out of these rows. Every safety gate passed on Keyhook's 30.
 
-**The pre-registered blind result is the honest one.** Before inspecting anything, v4 scored on the first 90 ChatGPT messages:
-- emergency recall 88% (2 of 16 missed)
-- escalation recall 90%
-- 2 unsafe actions
+**The pre-registered result is the honest one.** An earlier, frozen prompt scored on the first 90 ChatGPT messages before I read them got 88% emergency recall (2 of 16 missed), 90% escalation recall and 2 unsafe actions. The final prompt was written after reading those failures, so its 100% there now is post-hoc ([frozen result](reports/FROZEN_blind_test_set_v4.json)).
 
-v5 was written after reading those failures, so its 100% on that set is post-hoc. The frozen result is in [reports/FROZEN_blind_test_set_v4.json](reports/FROZEN_blind_test_set_v4.json).
+**What they tell you:** no labelled emergency was missed on any dataset, escalations almost never are, and under-triage is at most 2 per set, including sets written by another model family. Dev and holdout match (72% and 73%), so the prompt isn't overfitted to its tuning messages. Keyword rules alone are far worse.
 
-**What they tell you:** the pipeline catches every labelled emergency and almost every escalation, under-triage is at most 2 per set, and this holds across six datasets, including one written by a different model family. It also beats a keyword baseline by a wide margin.
+**What they don't tell you:** real-world accuracy. Only 30 labels are Keyhook's, they are in-sample (I read them throughout; 95% interval roughly 77–91%), and 2 emergencies prove little. Generated labels measure consistency, not correctness. The truly blind slice is tiny (12 escalations, 1 emergency), and the judge is uncalibrated against human ratings.
 
-**What they don't tell you:**
-- **Real-world accuracy is unproven.** Only 30 labels come from Keyhook, and 2 emergencies make "100% emergency recall" thin on its own.
-- **The 90% on Keyhook's 30 is in-sample.** Those messages were read throughout development and shaped the prompt's conventions, so the score shows the agent follows Keyhook's labelling. It doesn't show it generalises (95% interval about 74–97%). Its 3 misses are 2 medium-confidence escalations and 1 category on a label flagged as debatable before any run.
-- **Generated labels measure consistency, not correctness.** The suite's labels were written by the same model family that does the triage.
-- **The holdout is only partly blind.** The prompt's conventions came from all 349 labels.
-- **The truly blind ChatGPT slice is small.** It has 12 escalations, so the 95% interval on 92% recall is roughly 62–100%.
-- **Replay isn't a real run.** No real API call has been made. The subagents answered in batches, without enforced JSON schemas, and the judge was also Claude.
-- **The judge's scores are a proxy.** They haven't been calibrated against human ratings.
+## 4. Where it fails or is weakest
 
-## 4. Where the agent fails or is weakest
-
-- **The emergency/urgent boundary is a labelling convention, not something the model can work out.** A door that can't be locked is *urgent* in Keyhook's example and in the generated suite, but ChatGPT labels it *emergency* after a burglary. v4 missed 2 ChatGPT emergencies this way. v5 errs towards emergency, which costs over-triage. Keyhook needs to decide where the line is.
-- **Over-escalation.** Roughly 1 in 5 escalations is unnecessary. That's deliberate, but it costs PM time.
-- **Complaint vs request.** Category accuracy is about 70–80% in the complaint group: a gripe that contains a request gets filed as the request.
-- **Free-text safety advice.** The model made a 111 call conditional, so fixed wording now comes from code. My own first version of that wording told staff to phone a family-violence victim who had asked not to be called. The judge caught it, and it has been fixed. Fixed text needs the same review as model output.
-- **Novel prompt injection.** The regex catches about a third of the suite's attacks, and the model handles the rest; new phrasing is the biggest unknown.
-- **Run-to-run variation** of a few points, so small differences don't mean much. And **no context**: each message is triaged without tenancy history or open jobs.
+- **The emergency/urgent line is a labelling convention.** An unlockable door is *urgent* in Keyhook's example but *emergency* in ChatGPT's after a burglary. Keyhook needs to set the line.
+- **Over-escalation.** About 1 in 5 escalations is unnecessary: deliberate, but it costs PM time.
+- **Complaint vs request.** A gripe containing a request is often filed as the request (70–80% accuracy there).
+- **Novel prompt injection.** The regex catches about a third of the suite's attacks; the model handles the rest. New phrasing is the biggest unknown.
+- **Fixed text needs review too.** My first emergency wording told staff to phone a family-violence victim who had asked not to be called. The judge caught it.
+- **Provider content filtering.** On 2 of 549 messages, both containing injection text, the provider's filter stopped Haiku's answer. They fail closed after one call, which is safe but gives the PM nothing to work with.
+- **No context and some variance.** No tenancy history or open jobs; 13% of Keyhook's messages changed a decision between repeat runs.
 
 ## 5. What would need to be true before I'd trust it with real tenants
 
-1. **A real API run passes every gate.** That covers the model comparison plus the live path: provider routing, strict schemas and retries.
-2. **Shadow mode.** Run it alongside PMs on real mail for several weeks, with PMs labelling a sample. Measure missed emergencies and missed escalations against their decisions.
-3. **Agreed thresholds, in writing.** Zero missed emergencies over a meaningful real sample, and a missed-escalation rate the business accepts. Keyhook decides the emergency/urgent boundary.
-4. **It assists and never acts.** At first it only sorts the queue, and a person reads everything. Emergencies page someone, not just sit at the top of a list. Any auto-handling of routine messages comes later, only once shadow-mode data supports it.
-5. **Operations and privacy:**
-   - provider fallback and alerting on fail-safe spikes
-   - every decision logged with its prompt version
-   - a privacy review of sending tenant personal data to a third-party model
-   - every prompt or model change gated on the eval set, which grows from messages PMs re-triage
+1. **Done: a live run** of five models through OpenRouter, with strict schemas, caching and real cost. Still needed: route content-filtered messages to a fallback model instead of only escalating them.
+2. **Weeks of shadow mode** beside PMs, who label a sample, measuring missed emergencies and escalations against their decisions.
+3. **Written thresholds:** zero missed emergencies over a meaningful sample, and a missed-escalation rate the business accepts.
+4. **It assists, never acts.** It sorts the queue and a person reads everything; emergencies page someone.
+5. **Operations and privacy:** provider fallback, alerts on failed-triage spikes, decisions logged with their prompt version, a privacy review of sending tenant data to a model provider, and every change gated on an eval set grown from PM corrections.
 
----
+## 6. Time spent
 
-**Repository map:**
-- `triage/`: agent, guardrails, prompts, eval harness, replay tools
-- `data/` and `tenant_emails*.json`: the datasets and the label review
-- `reports/`: eval reports
-- [docs/EVALUATION.md](docs/EVALUATION.md): the full evaluation
-- [ai-sessions/](ai-sessions/): AI session history
+I didn't do this in one sitting. Session timestamps show about **4 hours of active work across three sittings**: 14 Oct 16:36–17:18 (plan and build), 14 Oct 22:51–00:08 (prompt iterations, blind set, code and security reviews), and 15 Oct 08:25–10:45 (label check, mock review and fixes, live model runs, of which about 30 minutes was waiting on API runs). That is over the brief's 2 hours and near the 4-hour maximum; the generated suite and blind sets took the extra time, and I'd cut them first if timeboxed. The [session history](ai-sessions/) has every prompt.
+
+**Repository:** `triage/` (agent, guardrails, prompts, eval, replay), `data/` and `tenant_emails*.json` (datasets), `reports/` (eval reports), [ai-sessions/](ai-sessions/) (AI session history, regenerated by `scripts/export_sessions.py`).

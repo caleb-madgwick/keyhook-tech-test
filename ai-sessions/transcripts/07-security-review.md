@@ -1,12 +1,44 @@
 # 7. Security review
 
-Claude Code session, Wed 14 Oct, 23:35 to 23:40 AEDT. 3 prompts, 1 subagent.
+Claude Code session, Wed 14 Oct, 23:35 to 23:40 AEDT. 4 prompts, 1 subagent.
 
 Prompts are quoted verbatim. Claude's replies are shown in full; tool calls are collapsed to one line each and tool output is left out.
 
 ### 23:35 · Prompt
 
 > /security-review
+
+
+### 23:35 · Prompt
+
+> why am i getting this:
+>
+>
+> ```text
+> /security-review
+> Shell command failed for pattern "!git diff --name-only origin/HEAD...": [stderr]
+> fatal: ambiguous argument 'origin/HEAD...': unknown revision or path not in the working tree.
+> Use '--' to separate paths from revisions, like this:
+> 'git <command> [<revision>...] -- [<file>...]'
+> ```
+
+<details><summary>1 tool call (Bash)</summary>
+
+- Bash: Check git remotes and origin HEAD
+
+</details>
+
+`/security-review` works out what to review by running `git diff --name-only origin/HEAD...`, which compares your branch against the remote's default branch. Your repo has the `origin` remote and an `origin/main` branch, but the `origin/HEAD` pointer was never set, so git can't find `origin/HEAD`. This often happens when you add a remote and push to it yourself instead of cloning, because cloning is what normally sets that pointer.
+
+To fix it, run:
+
+```sh
+git remote set-head origin --auto
+```
+
+If you'd rather not contact the remote, `git remote set-head origin main` does the same thing locally.
+
+Even with that fixed, the review will probably find nothing to look at. It compares commits on your branch against the remote, and `main` only has the initial commit. Your pending changes (the files under `replays/` and `reports/`) are untracked, so `git diff` won't include them. For them to be reviewed, they need to be committed on a branch that's ahead of `origin/main`.
 
 
 ### 23:36 · Prompt

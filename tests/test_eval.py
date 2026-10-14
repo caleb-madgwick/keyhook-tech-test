@@ -197,3 +197,33 @@ def test_run_dir_independent_of_cwd(env, tmp_path, monkeypatch):
     expected = ev.run_dir_for(cfg, ds)  # absolute path
     monkeypatch.chdir(tmp_path.parent)
     assert ev.run_dir_for(cfg, "ds.json") == expected  # relative to the repo root, not the cwd
+
+
+def test_validate_labels_normalises_case_and_reports_bad_values():
+    msgs = [{"id": "a", "expected": {"category": " Maintenance", "urgency": "URGENT", "also_mentions": ["Enquiry"],
+                                     "escalate_to_human": False}}]
+    ev.validate_labels(msgs)
+    assert msgs[0]["expected"]["category"] == "maintenance" and msgs[0]["expected"]["urgency"] == "urgent"
+    assert msgs[0]["expected"]["also_mentions"] == ["enquiry"]
+    bad = [{"id": "b", "expected": {"category": "repairs", "urgency": "high", "escalate_to_human": "yes"}},
+           {"id": "c"}]  # unlabelled messages are fine
+    with pytest.raises(SystemExit) as e:
+        ev.validate_labels(bad)
+    assert "3 label problem(s)" in str(e.value) and "category='repairs'" in str(e.value)
+
+
+def test_label_notes_only_apply_to_the_original_message(tmp_path, monkeypatch):
+    monkeypatch.setattr(ev, "ROOT", tmp_path)
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data/label_notes.json").write_text(json.dumps({"disputed": {"msg_006": "debatable"}}))
+    (tmp_path / "tenant_emails_test_suite.json").write_text(
+        json.dumps({"messages": [{"id": "msg_006", "body": "heat pump broken"}]}))
+    assert ev.label_notes_for({"msg_006": {"id": "msg_006", "body": "heat pump broken"}}) == {"msg_006": "debatable"}
+    assert ev.label_notes_for({"msg_006": {"id": "msg_006", "body": "a different message"}}) == {}
+
+
+def test_baseline_runs(capsys, monkeypatch):
+    from triage import baseline
+    monkeypatch.setattr("sys.argv", ["baseline", "--dataset", "tenant_emails.json"])
+    baseline.main()
+    assert "pass rate" in capsys.readouterr().out

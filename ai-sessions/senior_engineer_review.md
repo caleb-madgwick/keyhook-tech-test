@@ -1,5 +1,7 @@
 # Senior engineer review: Tenant Message Triage Agent
 
+> **Historical record, not a current assessment.** An LLM "senior engineer" wrote this review during the build on 14 Oct 2026 (session 1), with two re-reviews after fixes. Its scores and counts (for example "51/51 tests" and "no spend cap") describe the code at that time. Most findings were fixed afterwards, and [PROMPT_CHANGELOG.md](../PROMPT_CHANGELOG.md) records each fix. It moved here from `reports/` so it isn't mistaken for a current result.
+
 Read-only review. 51/51 tests pass. Findings were checked with stub clients and `httpx.MockTransport`, with no API calls.
 
 ## 1. Scorecard

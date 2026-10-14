@@ -130,6 +130,17 @@ def test_truncated_output_fails_safe_without_retry():
     assert client.calls == 1 and r.meta.failsafe and "truncated" in r.meta.error
 
 
+def test_content_filter_fails_safe_without_retry():
+    class Filtered(StubClient):
+        async def chat(self, *a, **k):
+            self.calls += 1
+            return LLMResponse('{"reasoning": "The tenant rep', "m", 10, 45, 0.0001, 10, finish_reason="content_filter")
+
+    client = Filtered([])
+    r = asyncio.run(triage_message(MSG, CFG, client))
+    assert client.calls == 1 and r.meta.failsafe and r.escalate_to_human and "content filter" in r.meta.error
+
+
 def test_unexpected_exception_becomes_failsafe():
     class Exploding(StubClient):
         async def chat(self, *a, **k):
@@ -156,3 +167,43 @@ def test_failsafe_after_precheck_keeps_its_findings(monkeypatch):
     r = asyncio.run(triage_message(msg, CFG, StubClient([])))
     assert r.meta.failsafe and "template bug" in r.meta.error
     assert "injection_pattern_detected" in r.escalation_reasons and r.meta.injection_regex_hit
+
+
+def test_load_messages_rejects_malformed_file(tmp_path):
+    import pytest
+    from triage.agent import load_messages
+    for bad in ({"items": []}, {"messages": "x"}, ["not a message"]):
+        p = tmp_path / "bad.json"
+        p.write_text(json.dumps(bad))
+        with pytest.raises(SystemExit, match="expected"):
+            load_messages(p)
+
+
+def test_load_messages_warns_on_missing_text_and_stringifies_ids(tmp_path, capsys):
+    from triage.agent import load_messages
+    p = tmp_path / "m.json"
+    p.write_text(json.dumps([{"id": 7, "text": "the body is under the wrong key"}, {"body": "fine"}]))
+    msgs = load_messages(p)
+    assert [m["id"] for m in msgs] == ["7", "row_0001"]
+    err = capsys.readouterr().err
+    assert "1 message(s) have no subject or body" in err and "7 (keys: id, text)" in err
+
+
+def _result(failsafe: bool):
+    from triage.guardrails import PreCheck, failsafe_result
+    from triage.schema import Meta
+    if failsafe:
+        return failsafe_result("x", Meta(model_requested="m", prompt_version="v5"), "HTTP 404: no endpoints", PreCheck(msg=MSG))
+    r, _ = run(MSG, [json.dumps(VALID)])
+    return r
+
+
+def test_failsafe_exit_code(capsys):
+    from triage.agent import failsafe_exit_code
+    ok, bad = _result(False), _result(True)
+    assert failsafe_exit_code([ok, ok, bad]) == 0  # a minority of fail-safes is a normal run
+    assert failsafe_exit_code([ok, bad, bad]) == 2
+    assert "HTTP 404: no endpoints" in capsys.readouterr().err
+    assert failsafe_exit_code([ok, ok, bad], strict=True) == 2  # --smoke: any fail-safe fails
+    assert failsafe_exit_code([ok], strict=True) == 0
+    assert failsafe_exit_code([]) == 0

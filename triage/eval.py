@@ -44,7 +44,7 @@ from .metrics import (
 from .prompts import SYSTEM_PROMPTS
 from .replay import make_client
 from .report import pct, slug, write_report
-from .schema import LLM_JSON_SCHEMA, LLMTriage, Meta
+from .schema import CATEGORIES, LLM_JSON_SCHEMA, URGENCIES, LLMTriage, Meta
 
 # Named safety gates for the seed messages. Every repeat must pass. A gate is only applied if
 # the message's own label agrees with it, so a different dataset that reuses these ids is not
@@ -347,9 +347,47 @@ def _prediction(rec: dict, msg: dict, cfg: Config) -> dict:
     return finalize(msg["id"], outcome, precheck(msg), cfg).model_dump()
 
 
+def validate_labels(messages: list[dict]) -> None:
+    """Normalise label case/whitespace ("Maintenance " -> "maintenance") and stop with a readable
+    list of problems before any API spend, instead of a KeyError deep in the metrics."""
+    problems = []
+    for m in messages:
+        exp = m.get("expected")
+        if exp is None:
+            continue
+        if not isinstance(exp, dict):
+            problems.append(f"{m['id']}: expected must be an object")
+            continue
+        for field, allowed in (("category", CATEGORIES), ("urgency", URGENCIES)):
+            value = str(exp.get(field, "")).strip().lower()
+            if value not in allowed:
+                problems.append(f"{m['id']}: {field}={exp.get(field)!r} is not one of {', '.join(allowed)}")
+            exp[field] = value
+        also = [str(c).strip().lower() for c in exp.get("also_mentions") or []]
+        problems += [f"{m['id']}: also_mentions has {c!r}" for c in also if c not in CATEGORIES]
+        exp["also_mentions"] = also
+        if not isinstance(exp.get("escalate_to_human"), bool):
+            problems.append(f"{m['id']}: escalate_to_human={exp.get('escalate_to_human')!r} must be true or false")
+    if problems:
+        raise SystemExit(f"{len(problems)} label problem(s):\n  " + "\n  ".join(problems[:20]))
+
+
+def label_notes_for(messages: dict[str, dict]) -> dict[str, str]:
+    """Disputed-label notes, applied only to messages that are the exact message the note was written
+    about. Another dataset that reuses an id like msg_006 gets no note."""
+    notes_path, source_path = ROOT / "data/label_notes.json", ROOT / "tenant_emails_test_suite.json"
+    if not notes_path.exists() or not source_path.exists():
+        return {}
+    disputed = json.loads(notes_path.read_text())["disputed"]
+    source = {m["id"]: m.get("body") for m in json.loads(source_path.read_text())["messages"]}
+    return {mid: note for mid, note in disputed.items()
+            if mid in messages and mid in source and messages[mid].get("body") == source[mid]}
+
+
 def run_eval(cfg: Config, dataset: str, repeats: int, use_judge: bool = True, refresh: bool = False,
              ids: set[str] | None = None, split: str = "all", group: str | None = None) -> dict:
     messages = select_messages(dataset, split, ids, group)
+    validate_labels(messages)
     run_dir = run_dir_for(cfg, dataset)
     cached, failed, judged, spent = asyncio.run(_run(cfg, messages, repeats, use_judge, run_dir, refresh))
 
@@ -383,8 +421,7 @@ def run_eval(cfg: Config, dataset: str, repeats: int, use_judge: bool = True, re
     if len(rows) < expected_rows:
         gates.append({"name": "Every labelled message scored", "passed": False,
                       "detail": f"{expected_rows - len(rows)} missing (budget cap or interrupted run)"})
-    label_notes_path = ROOT / "data/label_notes.json"
-    disputed = json.loads(label_notes_path.read_text())["disputed"] if label_notes_path.exists() else {}
+    disputed = label_notes_for(by_id)
 
     summary = {
         "dataset": dataset,

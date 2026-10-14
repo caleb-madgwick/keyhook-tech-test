@@ -15,6 +15,7 @@ import re
 from .eval import select_messages
 from .guardrails import precheck
 from .metrics import category_metrics, escalation_metrics, message_pass, urgency_metrics
+from .report import pct
 
 
 def _any(words: str, text: str) -> bool:

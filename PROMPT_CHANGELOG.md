@@ -14,7 +14,7 @@ The first prompt, written from the seed set's `label_definitions` and the brief 
 - **New output fields:** `confidence`, `review_notes`, `languages` and `language_mix`. Code adds the reasons `low_confidence`, `translation_check` and `obfuscated_content`.
 - **Leakage caveat:** the convention analysis read all 349 labels, including the 93 held out. The held-out set is therefore not blind to the *conventions*. It is still blind to *prompt iteration*, because I don't read held-out failures while tuning.
 
-### v2 amendments after the independent code review (`reports/senior_engineer_review.md`), still before any model run
+### v2 amendments after the independent code review (`ai-sessions/senior_engineer_review.md`), still before any model run
 - **Removed held-out wording.** Three examples in the prompt were close paraphrases of held-out messages: the "killing me" figure of speech, the "I used ChatGPT" aside and the confidentiality footer. I've replaced them with general wording.
   - I had also read held-out messages 273, 276 and 282 while tuning the injection regex.
   - **Honest status of the holdout:** it is blind to *prompt iteration*, but not to the labelling conventions or to those few messages. Treat its score as optimistic. The real out-of-sample test is Keyhook's unseen set.
@@ -174,7 +174,7 @@ A unit test pins all of these. Only emergency actions changed, so only they were
 - **Effect.** The suite judge now covers 349 of 349 messages, with a mean of 1.837 (1.839 over the 347 before). Rounded, dev is still 1.83 and holdout 1.85.
 
 ### Data note: correcting the official blind number and the label timeline (no behaviour change)
-The final independent review (`reports/senior_engineer_review.md`, "Final re-review") found three problems. I verified each one:
+The final independent review (`ai-sessions/senior_engineer_review.md`, "Final re-review") found three problems. I verified each one:
 - **Label corrections came after the runs.** The 6 label corrections in `data/blind_test_set.json` (blind_014, 026, 043, 049, 059, 088) were made at 23:39. That's **after** the frozen v4 result (23:29) and the v5 runs on this set (23:35), not before any model run. The committed file has the original labels. In 5 of the 6, the corrected label matches v5's prediction. The README now reports this set under both the original and the corrected labels, and treats the original labels as the honest basis.
 - **Wrong official number.** The "official" frozen blind result quoted earlier used the medium-confidence policy, which was itself chosen because of this set. The pre-registered result is v4 with low-only escalation on the original labels: emergency recall 88% (14/16), escalation recall 90% (47/52), pass rate 71%. My earlier "89%" trigger figure was computed on the first 60 messages.
 - **Policy informed by the Claude blind set.** That set's aggregates informed the medium-confidence decision, so it isn't blind for that policy.
@@ -205,3 +205,52 @@ The final independent review (`reports/senior_engineer_review.md`, "Final re-rev
 - **Action quality** is 1.79 vs Haiku's 1.83, though Sonnet's score comes from a different judge.
 
 **Decision.** Haiku 5.5 stays, under the pre-stated rule of the cheapest model that passes every gate. The README now carries the comparison, plus a cost table for all five candidates at OpenRouter list prices (15 Oct 2026). Files: `replays/suite_dev_v5_sonnet_subagent.jsonl`, `replays/judge_suite_dev_v5_sonnet_by_opus_subagent.jsonl`, and the `*sonnet*` and `*__dev*` reports.
+
+### Post-freeze code change: input and label checks, smoke test, broken-setup exit code (no prompt change, no triage output change)
+**Trigger.** A mock Keyhook review of the submission (a human-style pass plus an independent LLM reviewer) found these gaps. No API calls were made, and no holdout or blind results informed them.
+
+**What changed.**
+- **Malformed input.** `agent.load_messages` stops with a clear error when a file isn't `{"messages": [...]}` or a list of message objects. It warns when a message has no subject or body, which usually means the text is under a different key. Message ids are stored as strings.
+- **Label checks.** `eval.validate_labels` runs before any API spend. It lower-cases and trims labels (`"Maintenance "` becomes `maintenance`) and lists invalid values. Before this, a bad value raised a `KeyError` deep in the metrics.
+- **Disputed-label notes.** `eval.label_notes_for` applies a note only when the message body matches the message the note was written about. A new dataset that reuses an id like `msg_006` no longer shows irrelevant notes.
+- **Smoke test.** `python -m triage.agent --smoke` makes one real call on `msg_002` and prints the model used, attempts, structured-output fallback, tokens (including cached), cost and any error. It exits 2 if the message fails safe.
+- **Broken-setup exit code.** `triage.agent` exits 2 with the distinct errors when more than half the messages fail safe. Before this, a wrong model slug or key produced fully escalated output and exit code 0.
+- **Baseline fixed.** `triage.baseline` had raised `NameError: pct` since the "Simplify" commit. Its import is restored, and a test now runs it.
+- **Stale review moved.** `reports/senior_engineer_review.md` moved to `ai-sessions/` with a header saying it describes the code mid-build.
+
+**Effect.** Triage output on the four existing datasets is unchanged: all of them pass the new label check unchanged, and the disputed-label notes still apply to the same 16 messages. 160 tests pass.
+
+**Re-check of the baseline.** It reproduces the README's ChatGPT first-90 row (emergency recall 19%, escalation 23% / 80%, under/over-triage 23 / 9), except for the pass rate: 23% (21/90) against the 22% quoted. The README now quotes 23% and names the dataset.
+
+### Eval note: first live OpenRouter run, and the model decision it informed (no prompt or code change)
+**What ran** (15 Oct 2026, prompt v5, about $3.15 of the $15 key in total):
+- `triage.agent --smoke` on all five models: every one returned valid strict JSON on msg_002.
+- All five models on Keyhook's 30 × 3 repeats, then the judge (`openai/gpt-6-sol`) on repeat 0 of each.
+- Haiku, GPT-6 Luna, Gemini 3.5 Flash Lite and DeepSeek V4 Flash on the full 349-message suite. Sonnet 5.5 on the 93 holdout messages only, for cost.
+- **Blind and holdout data used for the decision:** Haiku and Luna on both blind sets (`data/blind_set.json`, `data/blind_test_set.json`). Holdout results were read for all five models.
+
+**Results** (Haiku / Luna):
+- suite pass rate 72% / 80%
+- missed escalations on the suite 1 / 6
+- under-triage across the suite and both blind sets 4 / 16
+- Keyhook 30 action quality 1.43 / 1.30
+- $ per 1,000 messages 0.40–0.54 / 0.25–0.32
+
+DeepSeek missed emergencies and had 2 unsafe actions. Gemini missed emergencies and never hit the prompt cache. Sonnet scored highest (holdout pass rate 86%, action quality 1.63) at $7–8 per 1,000.
+
+**Finding: provider content filter.** On msg_255 (suite holdout) and blind_066, OpenRouter returned `finish_reason: content_filter` for Haiku, with the answer cut off mid-JSON. Both messages contain injection text. The agent made its corrective retry, which was filtered too, and then failed closed (`triage_failed`, escalated). The blind_066 message text was not read.
+
+**Decision: Haiku 5.5 stays, against the pre-stated rule.** The rule, "the cheapest model that passes every gate", picks Luna, because Haiku fails the "no fail-safe results" gate on those 2 messages. Caleb chose Haiku after seeing these results, **including the blind sets**:
+- Haiku's gate failures are fail-closed escalations.
+- Luna's errors are silent under-triage and missed escalations.
+
+This is a post-hoc refinement of the rule, and the blind numbers informed it, so they can't be claimed as a blind test of the model choice. `config.yaml` is unchanged. README sections 2 and 3 now report the live numbers, and `docs/EVALUATION.md` notes that it is replay-based.
+
+### Post-freeze code change: content-filtered answers fail closed without a retry (no prompt change)
+**Trigger.** In the live run, the provider's content filter stopped Haiku's answer on 2 of 549 messages (`finish_reason: content_filter`). The agent's corrective retry was filtered the same way, so each of those messages cost a wasted second call.
+
+**Change.** `agent.call_model` now treats `content_filter` like a truncation. It makes no corrective retry and fails closed straight away, with the error "the model provider's content filter stopped the answer; read the message and triage it manually".
+
+**Effect on triage output.** Same decisions as before: those messages were already fail-safe results, escalated as `triage_failed`. Only `meta.attempts` (1 instead of 2), the error text and the cost change. Checked live on msg_255. A new test covers it.
+
+**Not done.** Routing filtered messages to a fallback model. That remains a production to-do in the README.
