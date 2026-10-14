@@ -1,7 +1,41 @@
 {
   "note": "Human review of ChatGPT's labels in data/blind_raw/, done BEFORE any model is run on the blind set. Every emergency, escalated and low-confidence label is checked (list printed by scripts/build_blind_set.py). Corrections are applied in data/blind_raw/batch_*.json and logged here with the original label, so the change history is auditable.",
   "reviewer": "Changes proposed by Claude Code from a cross-check against Keyhook's seed labels; approved by Caleb Madgwick.",
-  "checked_ids": [],
+  "checked_ids": [
+    "blind_002",
+    "blind_008",
+    "blind_014",
+    "blind_015",
+    "blind_017",
+    "blind_022",
+    "blind_024",
+    "blind_026",
+    "blind_029",
+    "blind_030",
+    "blind_033",
+    "blind_034",
+    "blind_037",
+    "blind_038",
+    "blind_045",
+    "blind_048",
+    "blind_049",
+    "blind_056",
+    "blind_058",
+    "blind_062",
+    "blind_063",
+    "blind_067",
+    "blind_070",
+    "blind_071",
+    "blind_076",
+    "blind_079",
+    "blind_082",
+    "blind_085",
+    "blind_086",
+    "blind_088",
+    "blind_089",
+    "blind_113",
+    "blind_119"
+  ],
   "changes": [
     {
       "id": "blind_014",
@@ -88,5 +122,22 @@
   },
   "kept_after_review": {
     "blind_022": "Kept as maintenance/emergency/escalated; blind_088 was aligned to it instead."
+  },
+  "hand_check": {
+    "date": "2026-10-15",
+    "scope": "All 17 emergency labels and all 18 low-confidence labels (33 messages; blind_022 and blind_088 are in both groups).",
+    "method": "Claude Code compared each label with Keyhook's 30 labelled seed messages and the label definitions, and proposed a verdict with a note; Caleb Madgwick reviewed each one and made the final decision. Only labels and message text were shown, never the agent's predictions.",
+    "outcome": "All 33 labels confirmed as they are; no label changed.",
+    "claude_suggestions_not_adopted": {
+      "blind_079": "Urgent rather than emergency, by analogy with seed msg_029 (a door that won't lock after the incident is over).",
+      "blind_015": "Complaint primary, by analogy with seed msg_019 (angry repeat report of an unfixed repair).",
+      "blind_034": "Complaint primary, by analogy with seed msg_019."
+    },
+    "flagged_as_judgement_calls_and_kept": {
+      "blind_008": "Emergency vs urgent: minutes after a violent break-in, with a child outside.",
+      "blind_088": "Emergency vs urgent: violence tonight, partner asleep in the home.",
+      "blind_026": "Daytime lockout not escalated, whereas seed msg_011 (2:30am lockout) is.",
+      "blind_024": "$60 short payment with a firm date not escalated, whereas seed msg_003 (job loss) is."
+    }
   }
 }

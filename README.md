@@ -106,7 +106,7 @@ For comparison, the same workload on Sonnet 5.5 would be about $12 per 1,000 wit
     - routine consent requests aren't escalated
     - two secondary categories had no basis in the message
   - **Consistency fix.** The sixth makes two family-violence messages consistent with each other. Its `emergency` urgency was deliberately left unchanged.
-  - **Hand-check.** TODO: hand-check the 17 emergencies and the 18 low-confidence labels, and record them in `checked_ids`.
+  - **Hand-check.** All 17 emergency and 18 low-confidence labels (33 messages) were checked against Keyhook's 30 seed labels. Claude proposed a verdict for each and I made the final call. All 33 were kept unchanged, so no result moves. Claude had suggested 3 changes (blind_079 to urgent; blind_015 and blind_034 to complaint), and I kept the original labels. The details are in `hand_check` in `data/blind_label_review.json`.
 
 - **Why I generated a suite.** 30 messages contain only 2 emergencies, a single injection attempt and no non-English text. That's too few to test the failure modes that matter. The generated messages cover 10 groups of about 30 messages each, targeting specific risks:
   - emergencies and near-misses

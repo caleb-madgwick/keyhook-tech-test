@@ -180,3 +180,14 @@ The final independent review (`reports/senior_engineer_review.md`, "Final re-rev
 - **Policy informed by the Claude blind set.** That set's aggregates informed the medium-confidence decision, so it isn't blind for that policy.
 
 **Process fix.** Reports for any dataset whose name contains "blind" now hold only aggregates. `triage/report.py` withholds per-message errors, and the earlier detailed blind reports were deleted.
+
+### Data note: blind-set hand-check completed (no label, prompt or code change)
+**What.** All 17 emergency and 18 low-confidence ChatGPT labels in `data/blind_test_set.json` (33 messages) were hand-checked against Keyhook's 30 seed labels and the label definitions. Claude proposed a verdict for each, and Caleb made the final decision.
+
+**Data hygiene.** The review page showed only the message text and its label, never the agent's predictions. No blind or holdout results informed it.
+
+**Outcome.** All 33 labels were kept unchanged, so no reported number moves. Claude suggested 3 changes, which were not adopted:
+- `blind_079`: urgent rather than emergency
+- `blind_015` and `blind_034`: complaint primary
+
+4 judgement calls were flagged and kept. All of these are recorded under `hand_check` in `data/blind_label_review.json`, and the ids are in `checked_ids`.
