@@ -228,4 +228,4 @@ Weak spots expected from the design:
 | `triage/replay.py`, `offline.py` | Score recorded model outputs without API spend |
 | `scripts/build_blind_set.py`, `data/blind_raw/` | Build and validate the ChatGPT blind test set |
 | `reports/` | Eval reports, plus an independent AI code review I commissioned (`senior_engineer_review.md`) and the fixes made in response |
-| `ai-sessions/` | Raw AI session history (TODO: export) |
+| `ai-sessions/` | AI session history: my prompts and a readable transcript of each Claude Code session, including subagent briefs and reports (see its README for what's included) |
