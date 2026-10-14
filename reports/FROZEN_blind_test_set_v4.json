@@ -1,0 +1,146 @@
+{
+  "note": "Official blind result on data/blind_test_set.json, frozen 2026-10-14 BEFORE any of its messages or errors were inspected. Prompt v4, replay of Claude Haiku subagent answers. Judge (Claude Sonnet subagent) added before inspection.",
+  "results": {
+    "low medium": {
+      "pass_rate": 0.6888888888888889,
+      "category": {
+        "n": 90,
+        "strict_accuracy": 0.8444444444444444,
+        "lenient_accuracy": 0.8777777777777778,
+        "also_mentions_precision": 0.7142857142857143,
+        "also_mentions_recall": 0.37037037037037035,
+        "confusion": {
+          "maintenance": {
+            "maintenance": 38,
+            "arrears": 0,
+            "complaint": 1,
+            "enquiry": 1,
+            "other": 2
+          },
+          "arrears": {
+            "maintenance": 0,
+            "arrears": 9,
+            "complaint": 0,
+            "enquiry": 1,
+            "other": 1
+          },
+          "complaint": {
+            "maintenance": 0,
+            "arrears": 0,
+            "complaint": 8,
+            "enquiry": 0,
+            "other": 0
+          },
+          "enquiry": {
+            "maintenance": 2,
+            "arrears": 1,
+            "complaint": 1,
+            "enquiry": 10,
+            "other": 3
+          },
+          "other": {
+            "maintenance": 1,
+            "arrears": 0,
+            "complaint": 0,
+            "enquiry": 0,
+            "other": 11
+          }
+        }
+      },
+      "urgency": {
+        "n": 90,
+        "accuracy": 0.9222222222222223,
+        "under_triage": 4,
+        "over_triage": 3,
+        "emergency_recall": 0.875,
+        "emergency_n": 16
+      },
+      "escalation": {
+        "n": 90,
+        "accuracy": 0.8777777777777778,
+        "recall": 0.9423076923076923,
+        "precision": 0.8596491228070176,
+        "f1": 0.8990825688073394,
+        "tp": 49,
+        "fp": 8,
+        "fn": 3,
+        "tn": 30
+      },
+      "n": 90,
+      "judge": {
+        "mean_score": 1.8777777777777778,
+        "score_2": 80,
+        "score_1": 9,
+        "score_0": 1,
+        "n_unsafe": 2
+      }
+    },
+    "low": {
+      "pass_rate": 0.7111111111111111,
+      "category": {
+        "n": 90,
+        "strict_accuracy": 0.8444444444444444,
+        "lenient_accuracy": 0.8777777777777778,
+        "also_mentions_precision": 0.7142857142857143,
+        "also_mentions_recall": 0.37037037037037035,
+        "confusion": {
+          "maintenance": {
+            "maintenance": 38,
+            "arrears": 0,
+            "complaint": 1,
+            "enquiry": 1,
+            "other": 2
+          },
+          "arrears": {
+            "maintenance": 0,
+            "arrears": 9,
+            "complaint": 0,
+            "enquiry": 1,
+            "other": 1
+          },
+          "complaint": {
+            "maintenance": 0,
+            "arrears": 0,
+            "complaint": 8,
+            "enquiry": 0,
+            "other": 0
+          },
+          "enquiry": {
+            "maintenance": 2,
+            "arrears": 1,
+            "complaint": 1,
+            "enquiry": 10,
+            "other": 3
+          },
+          "other": {
+            "maintenance": 1,
+            "arrears": 0,
+            "complaint": 0,
+            "enquiry": 0,
+            "other": 11
+          }
+        }
+      },
+      "urgency": {
+        "n": 90,
+        "accuracy": 0.9222222222222223,
+        "under_triage": 4,
+        "over_triage": 3,
+        "emergency_recall": 0.875,
+        "emergency_n": 16
+      },
+      "escalation": {
+        "n": 90,
+        "accuracy": 0.9,
+        "recall": 0.9038461538461539,
+        "precision": 0.9215686274509803,
+        "f1": 0.9126213592233009,
+        "tp": 47,
+        "fp": 4,
+        "fn": 5,
+        "tn": 34
+      },
+      "n": 90
+    }
+  }
+}

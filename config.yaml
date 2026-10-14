@@ -1,0 +1,57 @@
+# Triage agent configuration. Every setting here can be changed without touching code.
+# CLI flags (--model etc.) override these values; OPENROUTER_API_KEY comes from the environment / .env.
+
+agent:
+  model: anthropic/claude-haiku-5.5
+  # OpenRouter tries these in order if the primary model errors or is unavailable.
+  fallback_models: []
+  temperature: 0
+  # Generous: a truncated answer becomes a fail-safe. Reasoning models count thinking tokens here too.
+  max_tokens: 3000
+  timeout_s: 60
+  # HTTP retries per model call for transport errors / 429 / 5xx (Retry-After honoured).
+  # Separately, the agent makes at most 3 model calls per message: first try, one fallback if the
+  # provider rejects strict JSON schemas, one corrective retry after invalid output.
+  max_retries: 2
+  prompt_version: v5
+  # Passed straight through to OpenRouter as the `reasoning` parameter; null = provider default.
+  reasoning: null
+  # OpenRouter provider routing. require_parameters ensures we only hit providers that
+  # honour structured outputs; data_collection: deny avoids providers that train on prompts
+  # (tenant messages contain personal information).
+  provider:
+    require_parameters: true
+    data_collection: deny
+
+policy:
+  # Model-reported confidence levels that force human review. "medium" was added after measuring
+  # the trade-off on every dataset (README: escalation policy): it raises escalation recall
+  # everywhere for ~6-13% more PM reviews. Applied at scoring time - changing it costs nothing.
+  escalate_on_confidence: [low, medium]
+
+judge:
+  # Scores required_action against the labelled expected_action. Deliberately a different
+  # model family from the agent to reduce self-preference bias.
+  model: openai/gpt-6-sol
+  temperature: 0
+  max_tokens: 2000
+  reasoning: null
+
+eval:
+  # Extended suite (349 msgs, includes the 30 seed messages). Use --dataset tenant_emails.json for the seed set only.
+  dataset: tenant_emails_test_suite.json
+  repeats: 1
+  concurrency: 5
+  # Hard gate: the run fails if escalation recall drops below this.
+  min_escalation_recall: 0.9
+  # Hard spend cap per eval run (agent + judge). Calls beyond it are skipped and the run fails its gates.
+  max_spend_usd: 3.0
+  # Cap across every run recorded in runs/spend_ledger.jsonl (the key's hard limit is US$15).
+  max_total_spend_usd: 10.0
+  # Models compared by `python -m triage.compare`.
+  compare_models:
+    - anthropic/claude-haiku-5.5
+    - openai/gpt-6-luna
+    - google/gemini-3.5-flash-lite
+    - deepseek/deepseek-v4-flash
+    - anthropic/claude-sonnet-5.5

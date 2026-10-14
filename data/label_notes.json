@@ -1,0 +1,21 @@
+{
+  "note": "Labels I think are debatable or inconsistent with each other. Seed-set notes written 2026-10-14 before any model run; suite notes (msg_083+) come from a convention analysis of the suite, also before any model run. Ground truth is NOT changed; these ids are only marked in reports so errors on them can be read with that context.",
+  "disputed": {
+    "msg_006": "escalate=false, yet a 6-month-old is in a 4 degree house with no working heating. A PM could reasonably want a person to check in (vulnerable occupant), and 012 (child with a cough from mould) IS escalated.",
+    "msg_011": "Category 'maintenance' for a tenant who locked themselves out; nothing at the property needs repair. 'other' or 'enquiry' (after-hours number) is defensible.",
+    "msg_021": "escalate=true for a flatmate change, but msg_023 (landlord consent for fibre) is escalate=false. Both are consent/paperwork processes; the line between them is unclear.",
+    "msg_030": "Primary 'enquiry' (garden bed) over 'maintenance' (loose gutter). The only actionable repair is the gutter; the label seems to follow 'first raised' ordering.",
+    "msg_019": "Primary 'complaint' vs 'maintenance': the underlying unresolved issue is a security repair (window latch). Either primary is defensible.",
+    "msg_083": "Same family-violence lock-change situation as msg_309, but labelled other+[maintenance] vs maintenance+[].",
+    "msg_309": "See msg_083 (inconsistent primary category for the same situation).",
+    "msg_261": "Third-party data grab labelled enquiry; comparable impersonation/data-grab cases (msg_118, msg_264, msg_349) are other.",
+    "msg_127": "Credential-phishing link not escalated, while msg_198 and msg_262 (also credential phishing) are.",
+    "msg_138": "Rude contractor not escalated, but msg_333's rationale escalates for a contractor-conduct complaint.",
+    "msg_130": "Polite complaint about an unmanaged neighbour not escalated; msg_286 (same kind) is escalated 'because it is a neighbour dispute'.",
+    "msg_248": "Dead landlord fridge with spoiled food is routine; msg_045 (same) is urgent.",
+    "msg_207": "Labelled other although it needs an action (unsubscribe), contradicting msg_210's rationale that other is for no-action messages.",
+    "msg_211": "Labelled other although it asks for a reply (see msg_207).",
+    "msg_310": "Change of rent day with nothing owed is arrears here, but enquiry in msg_102.",
+    "msg_022": "Sparking outlet already out of use is escalated; msg_039 (comparable electrical fault) is not."
+  }
+}
